@@ -1,162 +1,143 @@
 import React, { useEffect, useRef, useState } from "react";
 
-// --- 유틸리티 및 수식 보존 ---
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-const downloadBlob = (blob, filename) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
 
 function App() {
-  const sourceVideoRef = useRef(null);
-  const previewCanvasRef = useRef(null);
-  const offscreenRef = useRef(null);
-  const rafRef = useRef(0);
-  const webcamStreamRef = useRef(null);
-  const recorderRef = useRef(null);
-  const chunksRef = useRef([]);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const offscreenCanvas = useRef(null);
+  const rafId = useRef(null);
+  const recorder = useRef(null);
+  const chunks = useRef([]);
 
-  // --- [핵심] 실시간 값 참조를 위한 Ref ---
-  const params = useRef({
+  // --- 실시간 값 보장을 위한 Mutable Ref ---
+  const settings = useRef({
     dotScale: 0.8,
     cellSize: 10,
+    gamma: 1.0,
     brightness: 0.0,
     contrast: 1.1,
-    gamma: 1.0,
+    bgTone: 255,
     invert: false,
     colorMode: "color",
     shape: "circle",
-    bgTone: 255,
     mirror: true
   });
 
-  // UI 상태 동기화용
-  const [ui, setUi] = useState({ ...params.current });
-  const [sourceMode, setSourceMode] = useState("webcam");
-  const [isRecording, setIsRecording] = useState(false);
-  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth <= 980);
+  // UI 리렌더링을 위한 상태 (값 표시용)
+  const [ui, setUi] = useState({ ...settings.current });
+  const [mode, setMode] = useState("webcam");
+  const [isRec, setIsRec] = useState(false);
 
-  // 값 변경 함수
-  const setParam = (key, val) => {
-    params.current[key] = val;
-    setUi({ ...params.current }); // UI 업데이트
+  // 값 즉시 업데이트 함수
+  const change = (key, val) => {
+    settings.current[key] = val;
+    setUi({ ...settings.current });
   };
 
   useEffect(() => {
-    offscreenRef.current = document.createElement("canvas");
-    const handleResize = () => setIsMobile(window.innerWidth <= 980);
-    window.addEventListener("resize", handleResize);
-    
-    if (sourceMode === "webcam") startWebcam();
-    renderLoop(); // 루프 시작
-
+    offscreenCanvas.current = document.createElement("canvas");
+    startSource();
+    render(); // 루프 시작
     return () => {
-      window.removeEventListener("resize", handleResize);
-      stopWebcam();
-      cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(rafId.current);
+      stopTracks();
     };
   }, []);
 
-  const startWebcam = async () => {
+  const stopTracks = () => {
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+    }
+  };
+
+  const startSource = async () => {
     try {
+      stopTracks();
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-      webcamStreamRef.current = stream;
-      if (sourceVideoRef.current) {
-        sourceVideoRef.current.srcObject = stream;
-        sourceVideoRef.current.play();
-      }
-    } catch (e) { alert("카메라를 켤 수 없습니다."); }
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+    } catch (e) { console.error("카메라 에러"); }
   };
 
-  const stopWebcam = () => {
-    if (webcamStreamRef.current) {
-      webcamStreamRef.current.getTracks().forEach(t => t.stop());
-      webcamStreamRef.current = null;
-    }
-  };
-
-  const renderLoop = () => {
+  const render = () => {
     const loop = () => {
-      draw();
-      rafRef.current = requestAnimationFrame(loop);
+      const v = videoRef.current;
+      const c = canvasRef.current;
+      if (v && v.readyState >= 2 && c) {
+        processFrame(v, c);
+      }
+      rafId.current = requestAnimationFrame(loop);
     };
-    rafRef.current = requestAnimationFrame(loop);
+    rafId.current = requestAnimationFrame(loop);
   };
 
-  const draw = () => {
-    const video = sourceVideoRef.current;
-    const canvas = previewCanvasRef.current;
-    const off = offscreenRef.current;
-    if (!video || !canvas || !off || video.readyState < 2) return;
-
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const processFrame = (video, canvas) => {
+    const s = settings.current;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const off = offscreenCanvas.current;
     const octx = off.getContext("2d", { willReadFrequently: true });
-    const p = params.current; // 실시간 값 참조
 
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    const cw = isMobile ? window.innerWidth - 40 : Math.min(window.innerWidth - 500, 1100);
-    const ch = (vh / vw) * cw;
+    const w = Math.min(window.innerWidth - 450, 1200);
+    const h = (video.videoHeight / video.videoWidth) * w;
 
-    if (canvas.width !== cw) {
-      canvas.width = cw; canvas.height = ch;
-      off.width = cw; off.height = ch;
+    if (canvas.width !== w) {
+      canvas.width = w; canvas.height = h;
+      off.width = w; off.height = h;
     }
 
-    // 1. 소스 그리기 (미러링 포함)
+    // 1. 소스 그리기
     octx.save();
-    if (sourceMode === "webcam" && p.mirror) {
-      octx.translate(cw, 0); octx.scale(-1, 1);
+    if (mode === "webcam" && s.mirror) {
+      octx.translate(w, 0); octx.scale(-1, 1);
     }
-    octx.drawImage(video, 0, 0, cw, ch);
+    octx.drawImage(video, 0, 0, w, h);
     octx.restore();
 
-    const { data } = octx.getImageData(0, 0, cw, ch);
+    const img = octx.getImageData(0, 0, w, h);
+    const data = img.data;
 
-    // 2. 배경색 칠하기
-    ctx.fillStyle = `rgb(${p.bgTone},${p.bgTone},${p.bgTone})`;
-    ctx.fillRect(0, 0, cw, ch);
+    // 2. 배경 칠하기
+    ctx.fillStyle = `rgb(${s.bgTone}, ${s.bgTone}, ${s.bgTone})`;
+    ctx.fillRect(0, 0, w, h);
 
-    // 3. 하프톤 렌더링
-    const step = Math.max(4, p.cellSize);
-    for (let y = 0; y < ch; y += step) {
-      for (let x = 0; x < cw; x += step) {
-        const i = (Math.floor(y) * cw + Math.floor(x)) * 4;
+    // 3. 하프톤 연산
+    const step = s.cellSize;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (Math.floor(y) * w + Math.floor(x)) * 4;
         
-        const process = (v) => {
-          let val = Math.pow(v / 255, 1 / p.gamma);
-          val = (val - 0.5) * p.contrast + 0.5 + p.brightness;
-          return p.invert ? 1 - clamp(val, 0, 1) : clamp(val, 0, 1);
+        const tone = (v) => {
+          let res = Math.pow(v / 255, 1 / s.gamma);
+          res = (res - 0.5) * s.contrast + 0.5 + s.brightness;
+          return s.invert ? 1 - clamp(res, 0, 1) : clamp(res, 0, 1);
         };
 
-        const tr = process(data[i]), tg = process(data[i+1]), tb = process(data[i+2]);
-        const radius = (step / 2) * p.dotScale;
+        const r = tone(data[i]), g = tone(data[i+1]), b = tone(data[i+2]);
+        const size = (step / 2) * s.dotScale;
 
-        if (p.colorMode === "color") {
+        if (s.colorMode === "color") {
           ctx.globalCompositeOperation = "multiply";
-          ctx.fillStyle = "rgba(255, 0, 150, 0.8)";
-          drawShapeInner(ctx, p.shape, x, y, radius * tr);
-          ctx.fillStyle = "rgba(0, 255, 200, 0.8)";
-          drawShapeInner(ctx, p.shape, x + step * 0.1, y, radius * tg);
-          ctx.fillStyle = "rgba(255, 210, 0, 0.8)";
-          drawShapeInner(ctx, p.shape, x, y + step * 0.1, radius * tb);
+          // 색상 보정: 더 선명한 CMY 톤 적용
+          ctx.fillStyle = "rgba(255, 0, 100, 0.9)";
+          drawDot(ctx, s.shape, x, y, size * r);
+          ctx.fillStyle = "rgba(0, 200, 255, 0.9)";
+          drawDot(ctx, s.shape, x + step * 0.15, y, size * g);
+          ctx.fillStyle = "rgba(255, 220, 0, 0.9)";
+          drawDot(ctx, s.shape, x, y + step * 0.15, size * b);
         } else {
           ctx.globalCompositeOperation = "source-over";
-          const luma = tr * 0.299 + tg * 0.587 + tb * 0.114;
-          const g = Math.round(255 - luma * 255);
-          ctx.fillStyle = `rgb(${g},${g},${g})`;
-          drawShapeInner(ctx, p.shape, x, y, radius * luma * 1.6);
+          const gray = r * 0.299 + g * 0.587 + b * 0.114;
+          const v = Math.round(255 - gray * 255);
+          ctx.fillStyle = `rgb(${v},${v},${v})`;
+          drawDot(ctx, s.shape, x, y, size * gray * 1.5);
         }
       }
     }
     ctx.globalCompositeOperation = "source-over";
   };
 
-  const drawShapeInner = (ctx, type, x, y, r) => {
+  const drawDot = (ctx, type, x, y, r) => {
     if (r < 0.3) return;
     ctx.beginPath();
     if (type === "square") ctx.rect(x - r, y - r, r * 2, r * 2);
@@ -168,80 +149,68 @@ function App() {
     ctx.fill();
   };
 
-  const handleRec = () => {
-    if (isRecording) {
-      recorderRef.current.stop();
-      setIsRecording(false);
-    } else {
-      chunksRef.current = [];
-      const stream = previewCanvasRef.current.captureStream(30);
-      const rec = new MediaRecorder(stream, { mimeType: "video/webm" });
-      rec.ondataavailable = e => chunksRef.current.push(e.data);
-      rec.onstop = () => downloadBlob(new Blob(chunksRef.current, { type: "video/webm" }), `output.webm`);
-      rec.start();
-      recorderRef.current = rec;
-      setIsRecording(true);
+  const toggleRec = () => {
+    if (isRec) { recorder.current.stop(); setIsRec(false); }
+    else {
+      chunks.current = [];
+      const stream = canvasRef.current.captureStream(30);
+      recorder.current = new MediaRecorder(stream, { mimeType: "video/webm" });
+      recorder.current.ondataavailable = e => chunks.current.push(e.data);
+      recorder.current.onstop = () => {
+        const blob = new Blob(chunks.current, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = "halftone.webm"; a.click();
+      };
+      recorder.current.start();
+      setIsRec(true);
     }
   };
 
-  const btnS = (a) => ({
-    padding: "10px", borderRadius: "8px", border: "1px solid #333",
-    background: a ? "#fff" : "#111", color: a ? "#000" : "#fff", cursor: "pointer", fontSize: "12px"
+  const btn = (a) => ({
+    padding: "12px", border: "1px solid #333", borderRadius: "8px",
+    background: a ? "#fff" : "#111", color: a ? "#000" : "#fff", cursor: "pointer", fontWeight: "bold"
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "20px", padding: "20px", background: "#050505", minHeight: "100vh", color: "#fff" }}>
-      <div style={{ flex: 1, background: "#000", borderRadius: "15px", border: "1px solid #222", overflow: "hidden" }}>
-        <canvas ref={previewCanvasRef} style={{ width: "100%", height: "auto" }} />
+    <div style={{ display: "flex", gap: "20px", padding: "20px", background: "#000", minHeight: "100vh", color: "#fff" }}>
+      <div style={{ flex: 1, background: "#050505", border: "1px solid #222", borderRadius: "15px", overflow: "hidden" }}>
+        <canvas ref={canvasRef} style={{ width: "100%", height: "auto" }} />
       </div>
-
-      <div style={{ width: isMobile ? "100%" : "360px", display: "flex", flexDirection: "column", gap: "12px", background: "#111", padding: "20px", borderRadius: "15px" }}>
+      <div style={{ width: "350px", display: "flex", flexDirection: "column", gap: "15px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          <button onClick={() => { setSourceMode("webcam"); startWebcam(); }} style={btnS(sourceMode === "webcam")}>CAMERA</button>
-          <label style={{ ...btnS(sourceMode === "file"), textAlign: "center" }}>FILE<input type="file" onChange={e => {
-            setSourceMode("file"); stopWebcam();
-            sourceVideoRef.current.src = URL.createObjectURL(e.target.files[0]);
-            sourceVideoRef.current.play();
-          }} hidden /></label>
+          <button onClick={() => { setMode("webcam"); startSource(); }} style={btn(mode === "webcam")}>카메라</button>
+          <label style={{ ...btn(mode === "file"), textAlign: "center" }}>파일<input type="file" hidden onChange={e => {
+            setMode("file"); stopTracks();
+            videoRef.current.src = URL.createObjectURL(e.target.files[0]);
+            videoRef.current.play();
+          }} /></label>
         </div>
-
-        <div style={{ height: "1px", background: "#222" }} />
-
         {[
-          { k: "dotScale", n: "DOT SCALE", min: 0.1, max: 2, st: 0.05 },
-          { k: "cellSize", n: "DENSITY", min: 5, max: 50, st: 1 },
-          { k: "gamma", n: "GAMMA", min: 0.1, max: 3.0, st: 0.1 },
-          { k: "bgTone", n: "BACKGROUND", min: 0, max: 255, st: 1 },
+          { k: "dotScale", n: "점 크기", min: 0.1, max: 2, st: 0.05 },
+          { k: "cellSize", n: "입자 밀도", min: 5, max: 50, st: 1 },
+          { k: "gamma", n: "감마", min: 0.1, max: 3.0, st: 0.1 },
+          { k: "bgTone", n: "배경 밝기", min: 0, max: 255, st: 1 },
         ].map(i => (
           <div key={i.k}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#888", marginBottom: "4px" }}>
-              <span>{i.n}</span><span>{ui[i.k]}</span>
-            </div>
-            <input type="range" min={i.min} max={i.max} step={i.st} value={ui[i.k]} onChange={e => setParam(i.k, Number(e.target.value))} style={{ width: "100%" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "5px" }}><span>{i.n}</span><span>{ui[i.k]}</span></div>
+            <input type="range" min={i.min} max={i.max} step={i.st} value={ui[i.k]} onChange={e => change(i.k, Number(e.target.value))} style={{ width: "100%" }} />
           </div>
         ))}
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          <button onClick={() => setParam("colorMode", "color")} style={btnS(ui.colorMode === "color")}>RGB</button>
-          <button onClick={() => setParam("colorMode", "mono")} style={btnS(ui.colorMode === "mono")}>MONO</button>
+          <button onClick={() => change("colorMode", "color")} style={btn(ui.colorMode === "color")}>RGB</button>
+          <button onClick={() => change("colorMode", "mono")} style={btn(ui.colorMode === "mono")}>흑백</button>
         </div>
-
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "5px" }}>
-          {["circle", "square", "triangle", "diamond"].map(sh => (
-            <button key={sh} onClick={() => setParam("shape", sh)} style={btnS(ui.shape === sh)}>{sh[0].toUpperCase()}</button>
+          {["circle", "square", "triangle", "diamond"].map(t => (
+            <button key={t} onClick={() => change("shape", t)} style={btn(ui.shape === t)}>{t[0].toUpperCase()}</button>
           ))}
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          <button onClick={() => setParam("invert", !ui.invert)} style={btnS(ui.invert)}>INVERT</button>
-          <button onClick={() => setParam("mirror", !ui.mirror)} style={btnS(ui.mirror)}>MIRROR</button>
-        </div>
-
-        <button onClick={handleRec} style={{ ...btnS(isRecording), background: isRecording ? "#ff4444" : "#333", marginTop: "10px", padding: "15px" }}>
-          {isRecording ? "STOP RECORDING" : "START RECORDING"}
+        <button onClick={() => change("invert", !ui.invert)} style={btn(ui.invert)}>색상 반전</button>
+        <button onClick={toggleRec} style={{ ...btn(isRec), background: isRec ? "#f00" : "#333", marginTop: "10px" }}>
+          {isRec ? "녹화 중지" : "녹화 시작"}
         </button>
       </div>
-      <video ref={sourceVideoRef} style={{ display: "none" }} playsInline muted loop />
+      <video ref={videoRef} style={{ display: "none" }} playsInline muted loop />
     </div>
   );
 }
