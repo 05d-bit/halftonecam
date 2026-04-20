@@ -1,3 +1,7 @@
+
+
+
+
 import React, { useEffect, useRef, useState } from "react";
 
 export default function HalftoneWebcamApp() {
@@ -561,11 +565,11 @@ export default function HalftoneWebcamApp() {
   };
 
   const getSupportedMimeType = () => {
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) return "video/webm;codecs=vp9";
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) return "video/webm;codecs=vp8";
-    if (MediaRecorder.isTypeSupported("video/webm")) return "video/webm";
-    return "";
-  };
+  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) return "video/webm;codecs=vp9";
+  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) return "video/webm;codecs=vp8";
+  if (MediaRecorder.isTypeSupported("video/webm")) return "video/webm";
+  return "";
+};
 
   const startCameraRecording = () => {
     try {
@@ -1278,8 +1282,4 @@ export default function HalftoneWebcamApp() {
       </div>
     </div>
   );
-}
-cd ~/halftone-cam
-
-pwd
-pwd
+  }
