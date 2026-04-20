@@ -101,7 +101,7 @@ function App() {
   const [videoUrl, setVideoUrl] = useState("");
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
-  const [isMobile, setIsMobile] = useState(() =>
+  const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 980 : false
   );
 
@@ -145,10 +145,14 @@ function App() {
     return () => {
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(rafRef.current);
+
       if (webcamStreamRef.current) {
         webcamStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
+
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
     };
   }, [videoUrl]);
 
@@ -160,6 +164,41 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceMode]);
+
+  async function waitForVideoReady(video) {
+    if (!video) return false;
+
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+      return true;
+    }
+
+    return new Promise((resolve) => {
+      let done = false;
+
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        video.removeEventListener("loadedmetadata", onReady);
+        video.removeEventListener("loadeddata", onReady);
+        video.removeEventListener("canplay", onReady);
+        resolve(value);
+      };
+
+      const onReady = () => {
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          finish(true);
+        }
+      };
+
+      video.addEventListener("loadedmetadata", onReady);
+      video.addEventListener("loadeddata", onReady);
+      video.addEventListener("canplay", onReady);
+
+      setTimeout(() => {
+        finish(video.videoWidth > 0 && video.videoHeight > 0);
+      }, 1500);
+    });
+  }
 
   async function startWebcam() {
     try {
@@ -187,7 +226,19 @@ function App() {
       video.srcObject = stream;
       video.muted = true;
       video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.setAttribute("muted", "");
+
       await video.play();
+
+      const ok = await waitForVideoReady(video);
+
+      if (!ok) {
+        setError("웹캠은 켜졌지만 영상 크기를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+        setReady(false);
+        return;
+      }
+
       setReady(true);
       runPreview();
     } catch {
@@ -198,10 +249,14 @@ function App() {
 
   function stopWebcam() {
     const video = sourceVideoRef.current;
+
     if (video) {
       video.pause();
       video.srcObject = null;
+      video.removeAttribute("src");
+      video.load?.();
     }
+
     if (webcamStreamRef.current) {
       webcamStreamRef.current.getTracks().forEach((track) => track.stop());
       webcamStreamRef.current = null;
@@ -209,6 +264,9 @@ function App() {
   }
 
   function handleLoadedMetadata() {
+    const video = sourceVideoRef.current;
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) return;
+
     setReady(true);
     runPreview();
   }
@@ -232,12 +290,24 @@ function App() {
     video.src = url;
     video.muted = true;
     video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("muted", "");
+
     video.onloadedmetadata = async () => {
       try {
         await video.play();
       } catch {
         // autoplay block ignored
       }
+
+      const ok = await waitForVideoReady(video);
+
+      if (!ok) {
+        setError("업로드한 영상 정보를 읽지 못했습니다.");
+        setReady(false);
+        return;
+      }
+
       setReady(true);
       runPreview();
     };
@@ -262,11 +332,21 @@ function App() {
     const loop = () => {
       const video = sourceVideoRef.current;
       const canvas = previewCanvasRef.current;
-      if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
+
+      if (
+        video &&
+        canvas &&
+        !video.paused &&
+        !video.ended &&
+        video.readyState >= 2 &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
         renderHalftone(video, canvas, {
           mirror: sourceMode === "webcam" && mirrorWebcam,
         });
       }
+
       rafRef.current = requestAnimationFrame(loop);
     };
 
@@ -456,6 +536,10 @@ function App() {
       video.src = videoUrl;
       video.muted = true;
       video.currentTime = 0;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.setAttribute("muted", "");
+
       await video.play().catch(() => {});
 
       await new Promise((resolve) => {
@@ -861,7 +945,9 @@ function App() {
               좌우반전 {mirrorWebcam ? "On" : "Off"}
             </button>
             <button
-              onClick={() => setSourceMode((prev) => (prev === "webcam" ? "file" : "webcam"))}
+              onClick={() =>
+                setSourceMode((prev) => (prev === "webcam" ? "file" : "webcam"))
+              }
               style={btn(false)}
             >
               카메라 전환
