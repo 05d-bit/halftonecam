@@ -930,7 +930,7 @@ export default function App() {
             </div>
 
             <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Softness</div>
+            <div style={{ fontSize: "18px", fontWeight: 600 }}>Spacing</div>
               <div style={sectionTitle}>
                 <span>간격</span>
                 <span>{cellSize}</span>
@@ -946,7 +946,7 @@ export default function App() {
             </div>
 
             <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Threshold</div>
+             <div style={{ fontSize: "18px", fontWeight: 600 }}>Background Tone</div>
               <div style={sectionTitle}>
                 <span>배경톤</span>
                 <span>{bgTone}</span>
