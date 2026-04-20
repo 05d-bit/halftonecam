@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-// --- 원래 코드의 유틸리티 및 로직 보존 ---
+// --- 유틸리티 및 수식 보존 ---
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const downloadBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
@@ -9,45 +9,6 @@ const downloadBlob = (blob, filename) => {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
-const processTone = (v, gamma, contrast, brightness, invert) => {
-  let val = v / 255;
-  val = Math.pow(val, 1 / gamma);
-  val = (val - 0.5) * contrast + 0.5;
-  val += brightness;
-  val = clamp(val, 0, 1);
-  return invert ? 1 - val : val;
-};
-
-// 원래의 다양한 도형 그리기 로직 유지
-const drawShape = (ctx, shape, x, y, size) => {
-  if (size <= 0.2) return;
-  ctx.beginPath();
-  if (shape === "square") {
-    ctx.rect(x - size, y - size, size * 2, size * 2);
-  } else if (shape === "diamond") {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size, y);
-    ctx.lineTo(x, y + size);
-    ctx.lineTo(x - size, y);
-    ctx.closePath();
-  } else if (shape === "triangle") {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size, y + size);
-    ctx.lineTo(x - size, y + size);
-    ctx.closePath();
-  } else if (shape === "star") {
-    for (let i = 0; i < 10; i++) {
-      const r = i % 2 === 0 ? size : size * 0.45;
-      const a = -Math.PI / 2 + (Math.PI / 5) * i;
-      ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-    }
-    ctx.closePath();
-  } else {
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-  }
-  ctx.fill();
 };
 
 function App() {
@@ -59,28 +20,40 @@ function App() {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
 
-  const [sourceMode, setSourceMode] = useState("webcam");
-  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth <= 980);
-  const [ready, setReady] = useState(false);
+  // --- [핵심] 실시간 값 참조를 위한 Ref ---
+  const params = useRef({
+    dotScale: 0.8,
+    cellSize: 10,
+    brightness: 0.0,
+    contrast: 1.1,
+    gamma: 1.0,
+    invert: false,
+    colorMode: "color",
+    shape: "circle",
+    bgTone: 255,
+    mirror: true
+  });
 
-  // 원래의 모든 설정값 및 초기값 (bgTone 수정)
-  const [dotScale, setDotScale] = useState(0.8);
-  const [cellSize, setCellSize] = useState(10);
-  const [brightness, setBrightness] = useState(0.0);
-  const [contrast, setContrast] = useState(1.1);
-  const [gamma, setGamma] = useState(1.0);
-  const [invert, setInvert] = useState(false);
-  const [colorMode, setColorMode] = useState("color");
-  const [shape, setShape] = useState("circle");
-  const [bgTone, setBgTone] = useState(255); // 검은 화면 방지를 위한 기본값 상향
-  const [mirrorWebcam, setMirrorWebcam] = useState(true);
+  // UI 상태 동기화용
+  const [ui, setUi] = useState({ ...params.current });
+  const [sourceMode, setSourceMode] = useState("webcam");
   const [isRecording, setIsRecording] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth <= 980);
+
+  // 값 변경 함수
+  const setParam = (key, val) => {
+    params.current[key] = val;
+    setUi({ ...params.current }); // UI 업데이트
+  };
 
   useEffect(() => {
     offscreenRef.current = document.createElement("canvas");
     const handleResize = () => setIsMobile(window.innerWidth <= 980);
     window.addEventListener("resize", handleResize);
+    
     if (sourceMode === "webcam") startWebcam();
+    renderLoop(); // 루프 시작
+
     return () => {
       window.removeEventListener("resize", handleResize);
       stopWebcam();
@@ -90,52 +63,43 @@ function App() {
 
   const startWebcam = async () => {
     try {
-      if (webcamStreamRef.current) stopWebcam();
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
       webcamStreamRef.current = stream;
       if (sourceVideoRef.current) {
         sourceVideoRef.current.srcObject = stream;
-        sourceVideoRef.current.onloadedmetadata = () => {
-          sourceVideoRef.current.play();
-          setReady(true);
-          renderLoop();
-        };
+        sourceVideoRef.current.play();
       }
-    } catch (e) {
-      console.error("Webcam Error", e);
-    }
+    } catch (e) { alert("카메라를 켤 수 없습니다."); }
   };
 
   const stopWebcam = () => {
     if (webcamStreamRef.current) {
-      webcamStreamRef.current.getTracks().forEach(track => track.stop());
+      webcamStreamRef.current.getTracks().forEach(t => t.stop());
       webcamStreamRef.current = null;
     }
   };
 
   const renderLoop = () => {
-    cancelAnimationFrame(rafRef.current);
     const loop = () => {
-      if (sourceVideoRef.current && previewCanvasRef.current) {
-        drawHalftone();
-      }
+      draw();
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
   };
 
-  const drawHalftone = () => {
+  const draw = () => {
     const video = sourceVideoRef.current;
     const canvas = previewCanvasRef.current;
     const off = offscreenRef.current;
-    if (!video || !canvas || !off || video.videoWidth === 0) return;
+    if (!video || !canvas || !off || video.readyState < 2) return;
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const octx = off.getContext("2d", { willReadFrequently: true });
+    const p = params.current; // 실시간 값 참조
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    const cw = isMobile ? window.innerWidth - 40 : Math.min(window.innerWidth - 500, 1000);
+    const cw = isMobile ? window.innerWidth - 40 : Math.min(window.innerWidth - 500, 1100);
     const ch = (vh / vw) * cw;
 
     if (canvas.width !== cw) {
@@ -143,124 +107,138 @@ function App() {
       off.width = cw; off.height = ch;
     }
 
+    // 1. 소스 그리기 (미러링 포함)
     octx.save();
-    if (sourceMode === "webcam" && mirrorWebcam) {
+    if (sourceMode === "webcam" && p.mirror) {
       octx.translate(cw, 0); octx.scale(-1, 1);
     }
     octx.drawImage(video, 0, 0, cw, ch);
     octx.restore();
 
     const { data } = octx.getImageData(0, 0, cw, ch);
-    
-    // 렌더링 시작
-    ctx.fillStyle = `rgb(${bgTone},${bgTone},${bgTone})`;
+
+    // 2. 배경색 칠하기
+    ctx.fillStyle = `rgb(${p.bgTone},${p.bgTone},${p.bgTone})`;
     ctx.fillRect(0, 0, cw, ch);
 
-    const step = Math.max(4, cellSize);
+    // 3. 하프톤 렌더링
+    const step = Math.max(4, p.cellSize);
     for (let y = 0; y < ch; y += step) {
       for (let x = 0; x < cw; x += step) {
         const i = (Math.floor(y) * cw + Math.floor(x)) * 4;
-        const tr = processTone(data[i], gamma, contrast, brightness, invert);
-        const tg = processTone(data[i+1], gamma, contrast, brightness, invert);
-        const tb = processTone(data[i+2], gamma, contrast, brightness, invert);
-        const luma = tr * 0.299 + tg * 0.587 + tb * 0.114;
+        
+        const process = (v) => {
+          let val = Math.pow(v / 255, 1 / p.gamma);
+          val = (val - 0.5) * p.contrast + 0.5 + p.brightness;
+          return p.invert ? 1 - clamp(val, 0, 1) : clamp(val, 0, 1);
+        };
 
-        const radius = (step / 2) * dotScale;
+        const tr = process(data[i]), tg = process(data[i+1]), tb = process(data[i+2]);
+        const radius = (step / 2) * p.dotScale;
 
-        if (colorMode === "color") {
+        if (p.colorMode === "color") {
           ctx.globalCompositeOperation = "multiply";
-          ctx.fillStyle = "rgba(255, 0, 150, 0.7)";
-          drawShape(ctx, shape, x, y, radius * tr);
-          ctx.fillStyle = "rgba(0, 255, 200, 0.7)";
-          drawShape(ctx, shape, x + step * 0.1, y, radius * tg);
-          ctx.fillStyle = "rgba(255, 200, 0, 0.7)";
-          drawShape(ctx, shape, x, y + step * 0.1, radius * tb);
+          ctx.fillStyle = "rgba(255, 0, 150, 0.8)";
+          drawShapeInner(ctx, p.shape, x, y, radius * tr);
+          ctx.fillStyle = "rgba(0, 255, 200, 0.8)";
+          drawShapeInner(ctx, p.shape, x + step * 0.1, y, radius * tg);
+          ctx.fillStyle = "rgba(255, 210, 0, 0.8)";
+          drawShapeInner(ctx, p.shape, x, y + step * 0.1, radius * tb);
         } else {
           ctx.globalCompositeOperation = "source-over";
+          const luma = tr * 0.299 + tg * 0.587 + tb * 0.114;
           const g = Math.round(255 - luma * 255);
           ctx.fillStyle = `rgb(${g},${g},${g})`;
-          drawShape(ctx, shape, x, y, radius * luma * 1.5);
+          drawShapeInner(ctx, p.shape, x, y, radius * luma * 1.6);
         }
       }
     }
     ctx.globalCompositeOperation = "source-over";
   };
 
-  // 녹화/파일업로드 등 원래 있던 모든 핸들러 함수들
-  const toggleRecording = () => {
+  const drawShapeInner = (ctx, type, x, y, r) => {
+    if (r < 0.3) return;
+    ctx.beginPath();
+    if (type === "square") ctx.rect(x - r, y - r, r * 2, r * 2);
+    else if (type === "diamond") {
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+    } else if (type === "triangle") {
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r); ctx.lineTo(x - r, y + r); ctx.closePath();
+    } else ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const handleRec = () => {
     if (isRecording) {
       recorderRef.current.stop();
       setIsRecording(false);
     } else {
       chunksRef.current = [];
       const stream = previewCanvasRef.current.captureStream(30);
-      const rec = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
-      rec.ondataavailable = (e) => chunksRef.current.push(e.data);
-      rec.onstop = () => downloadBlob(new Blob(chunksRef.current, { type: "video/webm" }), `record-${Date.now()}.webm`);
+      const rec = new MediaRecorder(stream, { mimeType: "video/webm" });
+      rec.ondataavailable = e => chunksRef.current.push(e.data);
+      rec.onstop = () => downloadBlob(new Blob(chunksRef.current, { type: "video/webm" }), `output.webm`);
       rec.start();
       recorderRef.current = rec;
       setIsRecording(true);
     }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      stopWebcam();
-      setSourceMode("file");
-      sourceVideoRef.current.srcObject = null;
-      sourceVideoRef.current.src = URL.createObjectURL(file);
-      sourceVideoRef.current.play();
-      renderLoop();
-    }
-  };
-
-  const btnStyle = (a) => ({
+  const btnS = (a) => ({
     padding: "10px", borderRadius: "8px", border: "1px solid #333",
-    background: a ? "#fff" : "#111", color: a ? "#000" : "#fff", cursor: "pointer", fontSize: "13px"
+    background: a ? "#fff" : "#111", color: a ? "#000" : "#fff", cursor: "pointer", fontSize: "12px"
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "20px", padding: "20px", background: "#000", minHeight: "100vh", color: "#fff" }}>
-      <div style={{ flex: 1, background: "#0a0a0a", borderRadius: "15px", border: "1px solid #222", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "20px", padding: "20px", background: "#050505", minHeight: "100vh", color: "#fff" }}>
+      <div style={{ flex: 1, background: "#000", borderRadius: "15px", border: "1px solid #222", overflow: "hidden" }}>
         <canvas ref={previewCanvasRef} style={{ width: "100%", height: "auto" }} />
       </div>
 
-      <div style={{ width: isMobile ? "100%" : "380px", display: "flex", flexDirection: "column", gap: "15px", background: "#111", padding: "20px", borderRadius: "15px" }}>
+      <div style={{ width: isMobile ? "100%" : "360px", display: "flex", flexDirection: "column", gap: "12px", background: "#111", padding: "20px", borderRadius: "15px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          <button onClick={() => { setSourceMode("webcam"); startWebcam(); }} style={btnStyle(sourceMode === "webcam")}>CAMERA</button>
-          <label style={{ ...btnStyle(sourceMode === "file"), textAlign: "center" }}>VIDEO FILE<input type="file" onChange={handleFileUpload} hidden /></label>
+          <button onClick={() => { setSourceMode("webcam"); startWebcam(); }} style={btnS(sourceMode === "webcam")}>CAMERA</button>
+          <label style={{ ...btnS(sourceMode === "file"), textAlign: "center" }}>FILE<input type="file" onChange={e => {
+            setSourceMode("file"); stopWebcam();
+            sourceVideoRef.current.src = URL.createObjectURL(e.target.files[0]);
+            sourceVideoRef.current.play();
+          }} hidden /></label>
         </div>
 
         <div style={{ height: "1px", background: "#222" }} />
 
-        {/* 모든 슬라이더 원래 기능 그대로 유지 */}
         {[
-          { n: "DOT SCALE", v: dotScale, s: setDotScale, min: 0.1, max: 2, st: 0.05 },
-          { n: "CELL SIZE", v: cellSize, s: setCellSize, min: 5, max: 50, st: 1 },
-          { n: "BRIGHTNESS", v: brightness, s: setBrightness, min: -0.5, max: 0.5, st: 0.01 },
-          { n: "CONTRAST", v: contrast, s: setContrast, min: 0.5, max: 2.5, st: 0.1 },
-          { n: "BG TONE", v: bgTone, s: setBgTone, min: 0, max: 255, st: 1 },
+          { k: "dotScale", n: "DOT SCALE", min: 0.1, max: 2, st: 0.05 },
+          { k: "cellSize", n: "DENSITY", min: 5, max: 50, st: 1 },
+          { k: "gamma", n: "GAMMA", min: 0.1, max: 3.0, st: 0.1 },
+          { k: "bgTone", n: "BACKGROUND", min: 0, max: 255, st: 1 },
         ].map(i => (
-          <div key={i.n}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#666", marginBottom: "4px" }}><span>{i.n}</span><span>{i.v}</span></div>
-            <input type="range" min={i.min} max={i.max} step={i.st} value={i.v} onChange={e => i.s(Number(e.target.value))} style={{ width: "100%" }} />
+          <div key={i.k}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#888", marginBottom: "4px" }}>
+              <span>{i.n}</span><span>{ui[i.k]}</span>
+            </div>
+            <input type="range" min={i.min} max={i.max} step={i.st} value={ui[i.k]} onChange={e => setParam(i.k, Number(e.target.value))} style={{ width: "100%" }} />
           </div>
         ))}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-          <button onClick={() => setColorMode("color")} style={btnStyle(colorMode === "color")}>RGB</button>
-          <button onClick={() => setColorMode("mono")} style={btnStyle(colorMode === "mono")}>MONO</button>
+          <button onClick={() => setParam("colorMode", "color")} style={btnS(ui.colorMode === "color")}>RGB</button>
+          <button onClick={() => setParam("colorMode", "mono")} style={btnS(ui.colorMode === "mono")}>MONO</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px" }}>
-          {["circle", "square", "triangle", "diamond", "star"].map(sh => (
-            <button key={sh} onClick={() => setShape(sh)} style={{ ...btnStyle(shape === sh), padding: "5px", fontSize: "10px" }}>{sh.toUpperCase()}</button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "5px" }}>
+          {["circle", "square", "triangle", "diamond"].map(sh => (
+            <button key={sh} onClick={() => setParam("shape", sh)} style={btnS(ui.shape === sh)}>{sh[0].toUpperCase()}</button>
           ))}
         </div>
 
-        <button onClick={toggleRecording} style={{ ...btnStyle(isRecording), background: isRecording ? "#ff4444" : "#333", marginTop: "10px", padding: "15px" }}>
-          {isRecording ? "STOP RECORD" : "START RECORD"}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <button onClick={() => setParam("invert", !ui.invert)} style={btnS(ui.invert)}>INVERT</button>
+          <button onClick={() => setParam("mirror", !ui.mirror)} style={btnS(ui.mirror)}>MIRROR</button>
+        </div>
+
+        <button onClick={handleRec} style={{ ...btnS(isRecording), background: isRecording ? "#ff4444" : "#333", marginTop: "10px", padding: "15px" }}>
+          {isRecording ? "STOP RECORDING" : "START RECORDING"}
         </button>
       </div>
       <video ref={sourceVideoRef} style={{ display: "none" }} playsInline muted loop />
