@@ -24,6 +24,15 @@ function drawShape(ctx, shape, x, y, size) {
     return;
   }
 
+  if (shape === "triangle") {
+    ctx.moveTo(x, y - r);
+    ctx.lineTo(x + r * 0.9, y + r);
+    ctx.lineTo(x - r * 0.9, y + r);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
   if (shape === "diamond") {
     ctx.moveTo(x, y - r);
     ctx.lineTo(x + r, y);
@@ -34,25 +43,19 @@ function drawShape(ctx, shape, x, y, size) {
     return;
   }
 
-  if (shape === "triangle") {
-    ctx.moveTo(x, y - r);
-    ctx.lineTo(x + r, y + r);
-    ctx.lineTo(x - r, y + r);
-    ctx.closePath();
-    ctx.fill();
-    return;
-  }
-
   if (shape === "star") {
-    const outer = r;
-    const inner = r * 0.45;
-    for (let i = 0; i < 10; i += 1) {
-      const angle = -Math.PI / 2 + (Math.PI / 5) * i;
-      const radius = i % 2 === 0 ? outer : inner;
-      const px = x + Math.cos(angle) * radius;
-      const py = y + Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    const spikes = 5;
+    const outerRadius = r;
+    const innerRadius = r * 0.45;
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+
+    ctx.moveTo(x, y - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      ctx.lineTo(x + Math.cos(rot) * outerRadius, y + Math.sin(rot) * outerRadius);
+      rot += step;
+      ctx.lineTo(x + Math.cos(rot) * innerRadius, y + Math.sin(rot) * innerRadius);
+      rot += step;
     }
     ctx.closePath();
     ctx.fill();
@@ -63,102 +66,75 @@ function drawShape(ctx, shape, x, y, size) {
   ctx.fill();
 }
 
-function getMimeType() {
-  if (typeof MediaRecorder === "undefined") return "";
-  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) {
-    return "video/webm;codecs=vp9";
-  }
-  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) {
-    return "video/webm;codecs=vp8";
-  }
-  if (MediaRecorder.isTypeSupported("video/webm")) {
-    return "video/webm";
-  }
-  return "";
-}
-
-function processTone(v, gamma, contrast, brightness, invert) {
-  let value = v / 255;
-  value = Math.pow(value, 1 / gamma);
-  value = (value - 0.5) * contrast + 0.5;
-  value += brightness;
-  value = clamp(value, 0, 1);
-  if (invert) value = 1 - value;
-  return value;
+function getLuminance(r, g, b) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 function App() {
-  const sourceVideoRef = useRef(null);
-  const previewCanvasRef = useRef(null);
-  const offscreenRef = useRef(null);
-  const rafRef = useRef(0);
-  const webcamStreamRef = useRef(null);
-  const previewRecorderRef = useRef(null);
-  const previewRecordedChunksRef = useRef([]);
-  const exportVideoRef = useRef(null);
+  const videoRef = useRef(null);
+  const hiddenCanvasRef = useRef(null);
+  const outputCanvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
-  const [sourceMode, setSourceMode] = useState("webcam");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [error, setError] = useState("");
-  const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState("webcam"); // webcam | file
+  const [colorMode, setColorMode] = useState("bw"); // bw | rgb | cmyk
+  const [shape, setShape] = useState("circle");
 
-  const [dotScale, setDotScale] = useState(0.85);
-  const [cellSize, setCellSize] = useState(12);
+  const [dotSize, setDotSize] = useState(8);
+  const [spacing, setSpacing] = useState(12);
   const [brightness, setBrightness] = useState(0);
   const [contrast, setContrast] = useState(1.15);
-  const [gamma, setGamma] = useState(1);
+  const [gamma, setGamma] = useState(1.0);
+  const [threshold, setThreshold] = useState(0);
+  const [softness, setSoftness] = useState(0.8);
+  const [backgroundTone, setBackgroundTone] = useState(8);
+
   const [invert, setInvert] = useState(false);
-  const [colorMode, setColorMode] = useState("mono");
-  const [shape, setShape] = useState("circle");
-  const [bgTone, setBgTone] = useState(8);
-  const [mirrorWebcam, setMirrorWebcam] = useState(true);
-  const [showGridStroke, setShowGridStroke] = useState(false);
+  const [mirror, setMirror] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
 
-  const [isPreviewRecording, setIsPreviewRecording] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isRendering, setIsRendering] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [statusText, setStatusText] = useState("준비됨");
+  const [selectedFileName, setSelectedFileName] = useState("");
 
-  const logoSrc = "/logo.png";
-
-  const shapeOptions = useMemo(
-    () => [
-      { value: "circle", label: "원" },
-      { value: "square", label: "네모" },
-      { value: "triangle", label: "세모" },
-      { value: "diamond", label: "다이아" },
-      { value: "star", label: "별" },
-    ],
-    []
-  );
-
-  useEffect(() => {
-    offscreenRef.current = document.createElement("canvas");
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      if (webcamStreamRef.current) {
-        webcamStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
-    };
+  const uiScale = useMemo(() => {
+    if (typeof window === "undefined") return 1;
+    if (window.innerWidth <= 520) return 0.88;
+    if (window.innerWidth <= 768) return 0.94;
+    return 1;
   }, []);
 
   useEffect(() => {
-    if (sourceMode === "webcam") {
-      void startWebcam();
-    } else {
-      stopWebcam();
+    return () => {
+      stopAll();
+    };
+  }, []);
+
+  function stopAll() {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceMode]);
 
-  async function startWebcam() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }
+
+  async function setupWebcam() {
     try {
-      setError("");
-      setReady(false);
-
-      if (webcamStreamRef.current) {
-        webcamStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      stopAll();
+      setStatusText("웹캠 연결 중...");
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -169,209 +145,204 @@ function App() {
         audio: false,
       });
 
-      webcamStreamRef.current = stream;
+      streamRef.current = stream;
 
-      const video = sourceVideoRef.current;
+      const video = videoRef.current;
       if (!video) return;
 
       video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
       await video.play();
-      setReady(true);
-      runPreview();
-    } catch (err) {
-      setError("웹캠을 열 수 없습니다. 브라우저 권한을 확인해 주세요.");
-      setReady(false);
+
+      setIsCameraReady(true);
+      setStatusText("웹캠 준비 완료");
+      startRendering();
+    } catch (error) {
+      console.error(error);
+      setIsCameraReady(false);
+      setStatusText("웹캠 접근 실패");
+      alert("웹캠 접근에 실패했습니다. 브라우저 권한을 확인해주세요.");
     }
   }
 
-  function stopWebcam() {
-    const video = sourceVideoRef.current;
-    if (video) {
-      video.pause();
-      video.srcObject = null;
-    }
-    if (webcamStreamRef.current) {
-      webcamStreamRef.current.getTracks().forEach((track) => track.stop());
-      webcamStreamRef.current = null;
-    }
-  }
-
-  function handleLoadedMetadata() {
-    setReady(true);
-    runPreview();
-  }
-
-  function handleUploadChange(event) {
+  function handleFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    stopAll();
+    setMode("file");
+    setSelectedFileName(file.name);
+    setStatusText("영상 파일 불러오는 중...");
 
-    const url = URL.createObjectURL(file);
-    setVideoUrl(url);
-    setSourceMode("file");
-    setError("");
-    setReady(false);
-
-    const video = sourceVideoRef.current;
+    const video = videoRef.current;
     if (!video) return;
 
+    const url = URL.createObjectURL(file);
     video.srcObject = null;
     video.src = url;
+    video.loop = true;
     video.muted = true;
     video.playsInline = true;
-    video.onloadedmetadata = async () => {
+
+    video.onloadeddata = async () => {
       try {
         await video.play();
-      } catch {
-        // autoplay block ignored
+        setStatusText("영상 파일 준비 완료");
+        startRendering();
+      } catch (e) {
+        console.error(e);
+        setStatusText("영상 재생 실패");
       }
-      setReady(true);
-      runPreview();
     };
   }
 
-  function resetValues() {
-    setDotScale(0.85);
-    setCellSize(12);
-    setBrightness(0);
-    setContrast(1.15);
-    setGamma(1);
-    setInvert(false);
-    setColorMode("mono");
-    setShape("circle");
-    setBgTone(8);
-    setMirrorWebcam(true);
-    setShowGridStroke(false);
-  }
+  function startRendering() {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
 
-  function runPreview() {
-    cancelAnimationFrame(rafRef.current);
+    setIsRendering(true);
 
-    const loop = () => {
-      const video = sourceVideoRef.current;
-      const canvas = previewCanvasRef.current;
-      if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
-        renderHalftone(video, canvas, {
-          mirror: sourceMode === "webcam" && mirrorWebcam,
-        });
-      }
-      rafRef.current = requestAnimationFrame(loop);
+    const render = () => {
+      processFrame();
+      animationRef.current = requestAnimationFrame(render);
     };
 
-    rafRef.current = requestAnimationFrame(loop);
+    render();
   }
 
-  function renderHalftone(video, targetCanvas, { mirror = false } = {}) {
-    const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
-    const offscreen = offscreenRef.current;
-    if (!ctx || !offscreen) return;
+  function processFrame() {
+    const video = videoRef.current;
+    const hiddenCanvas = hiddenCanvasRef.current;
+    const outputCanvas = outputCanvasRef.current;
 
-    const vw = video.videoWidth || 1280;
-    const vh = video.videoHeight || 720;
+    if (!video || !hiddenCanvas || !outputCanvas) return;
+    if (!video.videoWidth || !video.videoHeight) return;
 
-    const maxPreviewWidth = Math.min(window.innerWidth - 24, 1280);
-    const displayWidth = maxPreviewWidth;
-    const displayHeight = Math.round((vh / vw) * displayWidth);
+    const hiddenCtx = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+    const outCtx = outputCanvas.getContext("2d");
 
-    if (targetCanvas.width !== displayWidth || targetCanvas.height !== displayHeight) {
-      targetCanvas.width = displayWidth;
-      targetCanvas.height = displayHeight;
-    }
+    if (!hiddenCtx || !outCtx) return;
 
-    if (offscreen.width !== displayWidth || offscreen.height !== displayHeight) {
-      offscreen.width = displayWidth;
-      offscreen.height = displayHeight;
-    }
+    const sourceW = video.videoWidth;
+    const sourceH = video.videoHeight;
 
-    const octx = offscreen.getContext("2d", { willReadFrequently: true });
-    if (!octx) return;
+    hiddenCanvas.width = sourceW;
+    hiddenCanvas.height = sourceH;
 
-    octx.save();
-    octx.clearRect(0, 0, displayWidth, displayHeight);
+    const renderWidth = sourceW;
+    const renderHeight = sourceH;
+
+    outputCanvas.width = renderWidth;
+    outputCanvas.height = renderHeight;
+
+    hiddenCtx.save();
+    hiddenCtx.clearRect(0, 0, sourceW, sourceH);
 
     if (mirror) {
-      octx.translate(displayWidth, 0);
-      octx.scale(-1, 1);
+      hiddenCtx.translate(sourceW, 0);
+      hiddenCtx.scale(-1, 1);
     }
 
-    octx.drawImage(video, 0, 0, displayWidth, displayHeight);
-    octx.restore();
+    hiddenCtx.drawImage(video, 0, 0, sourceW, sourceH);
+    hiddenCtx.restore();
 
-    const imageData = octx.getImageData(0, 0, displayWidth, displayHeight);
+    const imageData = hiddenCtx.getImageData(0, 0, sourceW, sourceH);
     const data = imageData.data;
 
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
+    outCtx.fillStyle = invert ? "#fff" : "#000";
+    outCtx.fillRect(0, 0, renderWidth, renderHeight);
 
-    const bg = Math.round(clamp(bgTone, 0, 255));
-    ctx.fillStyle = `rgb(${bg},${bg},${bg})`;
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
+    const step = Math.max(4, Math.round(spacing));
+    const sizeBase = dotSize;
+    const bgDot = clamp(backgroundTone / 20, 0, 1.2);
 
-    const step = Math.max(4, cellSize);
-    const half = step / 2;
+    for (let y = 0; y < sourceH; y += step) {
+      for (let x = 0; x < sourceW; x += step) {
+        const i = (y * sourceW + x) * 4;
+        const r0 = data[i];
+        const g0 = data[i + 1];
+        const b0 = data[i + 2];
 
-    for (let y = 0; y < displayHeight; y += step) {
-      for (let x = 0; x < displayWidth; x += step) {
-        const px = Math.min(displayWidth - 1, Math.floor(x + half));
-        const py = Math.min(displayHeight - 1, Math.floor(y + half));
-        const idx = (py * displayWidth + px) * 4;
+        let r = clamp((r0 / 255 + brightness) * contrast, 0, 1);
+        let g = clamp((g0 / 255 + brightness) * contrast, 0, 1);
+        let b = clamp((b0 / 255 + brightness) * contrast, 0, 1);
 
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
+        r = Math.pow(r, 1 / gamma);
+        g = Math.pow(g, 1 / gamma);
+        b = Math.pow(b, 1 / gamma);
 
-        const toneR = processTone(r, gamma, contrast, brightness, invert);
-        const toneG = processTone(g, gamma, contrast, brightness, invert);
-        const toneB = processTone(b, gamma, contrast, brightness, invert);
+        const lum = getLuminance(r, g, b);
+        let darkness = 1 - lum;
 
-        const luma = processTone(
-          r * 0.299 + g * 0.587 + b * 0.114,
-          gamma,
-          contrast,
-          brightness,
-          invert
-        );
+        if (invert) darkness = 1 - darkness;
 
-        const cx = x + half;
-        const cy = y + half;
-
-        if (colorMode === "color") {
-          const base = step * dotScale * 0.5;
-          const sizeR = base * toneR;
-          const sizeG = base * toneG;
-          const sizeB = base * toneB;
-
-          ctx.globalCompositeOperation = "lighter";
-
-          ctx.fillStyle = `rgba(255,0,80,0.78)`;
-          drawShape(ctx, shape, cx - step * 0.16, cy - step * 0.08, sizeR);
-
-          ctx.fillStyle = `rgba(0,255,170,0.72)`;
-          drawShape(ctx, shape, cx + step * 0.14, cy - step * 0.02, sizeG);
-
-          ctx.fillStyle = `rgba(80,160,255,0.72)`;
-          drawShape(ctx, shape, cx, cy + step * 0.14, sizeB);
-
-          ctx.globalCompositeOperation = "source-over";
-        } else {
-          const radius = step * dotScale * 0.5 * luma;
-          const gray = Math.round(220 + luma * 35);
-          ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
-          drawShape(ctx, shape, cx, cy, radius);
+        if (threshold > 0) {
+          darkness = darkness < threshold ? 0 : darkness;
         }
 
-        if (showGridStroke) {
-          ctx.strokeStyle = "rgba(255,255,255,0.05)";
-          ctx.strokeRect(x, y, step, step);
+        darkness = Math.pow(clamp(darkness, 0, 1), Math.max(0.15, softness));
+
+        const cx = x + step / 2;
+        const cy = y + step / 2;
+
+        if (bgDot > 0) {
+          outCtx.fillStyle = invert ? "rgba(0,0,0,0.28)" : "rgba(255,255,255,0.12)";
+          drawShape(outCtx, shape, cx, cy, bgDot);
+        }
+
+        const s = clamp(darkness * sizeBase, 0, sizeBase);
+
+        if (s <= 0.05) continue;
+
+        if (colorMode === "bw") {
+          outCtx.fillStyle = invert ? "#000" : "#fff";
+          drawShape(outCtx, shape, cx, cy, s);
+        } else if (colorMode === "rgb") {
+          outCtx.fillStyle = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+          drawShape(outCtx, shape, cx, cy, s);
+        } else {
+          const c = 1 - r;
+          const m = 1 - g;
+          const yv = 1 - b;
+
+          if (c > 0.08) {
+            outCtx.fillStyle = "rgba(0,255,255,0.85)";
+            drawShape(outCtx, shape, cx - 2, cy, s * c);
+          }
+          if (m > 0.08) {
+            outCtx.fillStyle = "rgba(255,0,255,0.85)";
+            drawShape(outCtx, shape, cx + 2, cy, s * m);
+          }
+          if (yv > 0.08) {
+            outCtx.fillStyle = "rgba(255,255,0,0.85)";
+            drawShape(outCtx, shape, cx, cy + 2, s * yv);
+          }
         }
       }
     }
+
+    if (showGrid) {
+      outCtx.save();
+      outCtx.strokeStyle = invert ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.14)";
+      outCtx.lineWidth = 1;
+      for (let x = 0; x < renderWidth; x += step) {
+        outCtx.beginPath();
+        outCtx.moveTo(x, 0);
+        outCtx.lineTo(x, renderHeight);
+        outCtx.stroke();
+      }
+      for (let y = 0; y < renderHeight; y += step) {
+        outCtx.beginPath();
+        outCtx.moveTo(0, y);
+        outCtx.lineTo(renderWidth, y);
+        outCtx.stroke();
+      }
+      outCtx.restore();
+    }
   }
 
-  function downloadFrame() {
-    const canvas = previewCanvasRef.current;
+  function saveFrame() {
+    const canvas = outputCanvasRef.current;
     if (!canvas) return;
 
     canvas.toBlob((blob) => {
@@ -380,625 +351,590 @@ function App() {
     }, "image/png");
   }
 
-  function startPreviewRecording() {
-    const canvas = previewCanvasRef.current;
+  function saveProcessedVideo() {
+    const canvas = outputCanvasRef.current;
     if (!canvas) return;
 
-    const mimeType = getMimeType();
-    if (!mimeType) {
-      setError("이 브라우저에서는 영상 녹화를 지원하지 않습니다.");
-      return;
-    }
-
-    previewRecordedChunksRef.current = [];
-    const stream = canvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 8_000_000,
-    });
-
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        previewRecordedChunksRef.current.push(event.data);
+    if (isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
       }
-    };
-
-    recorder.onstop = () => {
-      const blob = new Blob(previewRecordedChunksRef.current, { type: mimeType });
-      downloadBlob(blob, `halftone-webcam-${Date.now()}.webm`);
-      setIsPreviewRecording(false);
-    };
-
-    previewRecorderRef.current = recorder;
-    recorder.start(100);
-    setIsPreviewRecording(true);
-  }
-
-  function stopPreviewRecording() {
-    if (previewRecorderRef.current && previewRecorderRef.current.state !== "inactive") {
-      previewRecorderRef.current.stop();
-    }
-  }
-
-  async function exportProcessedVideo() {
-    if (sourceMode !== "file" || !videoUrl) return;
-
-    const mimeType = getMimeType();
-    if (!mimeType) {
-      setError("이 브라우저에서는 영상 저장을 지원하지 않습니다.");
       return;
     }
-
-    setError("");
-    setIsExporting(true);
-    setExportProgress(0);
 
     try {
-      const video = exportVideoRef.current;
-      if (!video) throw new Error("export video element missing");
+      recordedChunksRef.current = [];
+      const stream = canvas.captureStream(30);
 
-      video.src = videoUrl;
-      video.muted = true;
-      video.currentTime = 0;
-      await video.play().catch(() => {});
-
-      await new Promise((resolve) => {
-        if (video.readyState >= 2) resolve(true);
-        else video.onloadedmetadata = () => resolve(true);
-      });
-
-      const exportCanvas = document.createElement("canvas");
-      const w = video.videoWidth || 1280;
-      const h = video.videoHeight || 720;
-      exportCanvas.width = w;
-      exportCanvas.height = h;
-
-      const stream = exportCanvas.captureStream(30);
       const recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 10_000_000,
+        mimeType: "video/webm",
       });
 
-      const chunks = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) chunks.push(event.data);
-      };
+      mediaRecorderRef.current = recorder;
 
-      const stopPromise = new Promise((resolve) => {
-        recorder.onstop = resolve;
-      });
-
-      recorder.start(100);
-
-      const drawFrame = () => {
-        if (video.paused || video.ended) return;
-        renderExportFrame(video, exportCanvas);
-        if (video.duration > 0) {
-          setExportProgress(video.currentTime / video.duration);
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
         }
-        requestAnimationFrame(drawFrame);
       };
 
-      video.currentTime = 0;
-      await video.play();
-      drawFrame();
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+        downloadBlob(blob, `halftone-video-${Date.now()}.webm`);
+        setIsRecording(false);
+        setStatusText("하프톤 영상 저장 완료");
+      };
 
-      await new Promise((resolve) => {
-        video.onended = resolve;
-      });
-
-      recorder.stop();
-      await stopPromise;
-
-      const blob = new Blob(chunks, { type: mimeType });
-      downloadBlob(blob, `halftone-video-${Date.now()}.webm`);
-      setExportProgress(1);
-    } catch (err) {
-      setError("영상 저장 중 오류가 발생했습니다.");
-    } finally {
-      setIsExporting(false);
-      setTimeout(() => setExportProgress(0), 1200);
+      recorder.start();
+      setIsRecording(true);
+      setStatusText("하프톤 영상 녹화 중...");
+    } catch (error) {
+      console.error(error);
+      alert("영상 저장을 시작할 수 없습니다.");
     }
   }
 
-  function renderExportFrame(video, targetCanvas) {
-    const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
+  function saveOriginalWebcam() {
+    const video = videoRef.current;
+    if (!video || !video.srcObject) {
+      alert("웹캠이 활성화되어 있지 않습니다.");
+      return;
+    }
 
-    const temp = document.createElement("canvas");
-    temp.width = targetCanvas.width;
-    temp.height = targetCanvas.height;
-    const tctx = temp.getContext("2d", { willReadFrequently: true });
-    if (!tctx) return;
+    if (isRecording) {
+      alert("현재 하프톤 녹화 중입니다. 먼저 종료해주세요.");
+      return;
+    }
 
-    tctx.drawImage(video, 0, 0, targetCanvas.width, targetCanvas.height);
-    const imageData = tctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
-    const data = imageData.data;
+    try {
+      recordedChunksRef.current = [];
+      const stream = video.srcObject;
 
-    const bg = Math.round(clamp(bgTone, 0, 255));
-    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    ctx.fillStyle = `rgb(${bg},${bg},${bg})`;
-    ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      const recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm",
+      });
 
-    const step = Math.max(4, cellSize);
-    const half = step / 2;
+      mediaRecorderRef.current = recorder;
 
-    for (let y = 0; y < targetCanvas.height; y += step) {
-      for (let x = 0; x < targetCanvas.width; x += step) {
-        const px = Math.min(targetCanvas.width - 1, Math.floor(x + half));
-        const py = Math.min(targetCanvas.height - 1, Math.floor(y + half));
-        const idx = (py * targetCanvas.width + px) * 4;
-
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-
-        const toneR = processTone(r, gamma, contrast, brightness, invert);
-        const toneG = processTone(g, gamma, contrast, brightness, invert);
-        const toneB = processTone(b, gamma, contrast, brightness, invert);
-
-        const luma = processTone(
-          r * 0.299 + g * 0.587 + b * 0.114,
-          gamma,
-          contrast,
-          brightness,
-          invert
-        );
-
-        const cx = x + half;
-        const cy = y + half;
-
-        if (colorMode === "color") {
-          const base = step * dotScale * 0.5;
-          const sizeR = base * toneR;
-          const sizeG = base * toneG;
-          const sizeB = base * toneB;
-
-          ctx.globalCompositeOperation = "lighter";
-
-          ctx.fillStyle = `rgba(255,0,80,0.78)`;
-          drawShape(ctx, shape, cx - step * 0.16, cy - step * 0.08, sizeR);
-
-          ctx.fillStyle = `rgba(0,255,170,0.72)`;
-          drawShape(ctx, shape, cx + step * 0.14, cy - step * 0.02, sizeG);
-
-          ctx.fillStyle = `rgba(80,160,255,0.72)`;
-          drawShape(ctx, shape, cx, cy + step * 0.14, sizeB);
-
-          ctx.globalCompositeOperation = "source-over";
-        } else {
-          const radius = step * dotScale * 0.5 * luma;
-          const gray = Math.round(220 + luma * 35);
-          ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
-          drawShape(ctx, shape, cx, cy, radius);
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
         }
-      }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+        downloadBlob(blob, `webcam-original-${Date.now()}.webm`);
+        setIsRecording(false);
+        setStatusText("웹캠 원본 저장 완료");
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setStatusText("웹캠 원본 녹화 중...");
+    } catch (error) {
+      console.error(error);
+      alert("웹캠 저장을 시작할 수 없습니다.");
     }
   }
 
-  const controlItemStyle = {
-    display: "grid",
-    gap: "6px",
-  };
+  function resetControls() {
+    setColorMode("bw");
+    setShape("circle");
+    setDotSize(8);
+    setSpacing(12);
+    setBrightness(0);
+    setContrast(1.15);
+    setGamma(1.0);
+    setThreshold(0);
+    setSoftness(0.8);
+    setBackgroundTone(8);
+    setInvert(false);
+    setMirror(true);
+    setShowGrid(false);
+  }
 
-  const labelStyle = {
-    color: "rgba(255,255,255,0.78)",
-    fontSize: "12px",
-    fontWeight: 600,
-    letterSpacing: "0.02em",
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#dcdcdc",
+      padding: window.innerWidth <= 768 ? "12px" : "24px",
+      boxSizing: "border-box",
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif',
+    },
+    shell: {
+      width: "100%",
+      maxWidth: "1400px",
+      margin: "0 auto",
+      display: "grid",
+      gridTemplateColumns: window.innerWidth <= 980 ? "1fr" : "160px 1fr",
+      gap: window.innerWidth <= 980 ? "12px" : "18px",
+      alignItems: "start",
+    },
+    logoRail: {
+      display: "flex",
+      justifyContent: window.innerWidth <= 980 ? "flex-start" : "center",
+      alignItems: "flex-start",
+      paddingTop: window.innerWidth <= 980 ? "0" : "6px",
+    },
+    logo: {
+      width: window.innerWidth <= 980 ? "64px" : "82px",
+      height: "auto",
+      display: "block",
+    },
+    main: {
+      background: "#050505",
+      borderRadius: window.innerWidth <= 768 ? "20px" : "28px",
+      padding: window.innerWidth <= 768 ? "10px" : "16px",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.18)",
+      overflow: "hidden",
+    },
+    previewWrap: {
+      background: "#000",
+      borderRadius: window.innerWidth <= 768 ? "16px" : "20px",
+      overflow: "hidden",
+      border: "1px solid rgba(255,255,255,0.08)",
+    },
+    previewCanvas: {
+      width: "100%",
+      display: "block",
+      background: "#000",
+      aspectRatio: "16 / 9",
+      objectFit: "contain",
+    },
+    controls: {
+      marginTop: "14px",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+      borderRadius: window.innerWidth <= 768 ? "18px" : "24px",
+      border: "1px solid rgba(255,255,255,0.08)",
+      padding: window.innerWidth <= 768 ? "12px" : "14px",
+      color: "#fff",
+    },
+    grid2: {
+      display: "grid",
+      gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr",
+      gap: "10px",
+      marginBottom: "10px",
+    },
+    grid3: {
+      display: "grid",
+      gridTemplateColumns:
+        window.innerWidth <= 768 ? "1fr" : window.innerWidth <= 1100 ? "1fr 1fr" : "1fr 1fr 1fr",
+      gap: "10px",
+      marginBottom: "10px",
+    },
+    grid4: {
+      display: "grid",
+      gridTemplateColumns:
+        window.innerWidth <= 768
+          ? "1fr 1fr"
+          : window.innerWidth <= 1100
+          ? "1fr 1fr"
+          : "1fr 1fr 1fr 1fr",
+      gap: "10px",
+      marginBottom: "10px",
+    },
+    grid6: {
+      display: "grid",
+      gridTemplateColumns:
+        window.innerWidth <= 640
+          ? "1fr"
+          : window.innerWidth <= 980
+          ? "1fr 1fr"
+          : "1fr 1fr 1fr",
+      gap: "10px",
+      marginBottom: "10px",
+    },
+    button: (active = false) => ({
+      width: "100%",
+      minHeight: window.innerWidth <= 768 ? "52px" : "58px",
+      borderRadius: "16px",
+      border: active ? "1px solid rgba(255,255,255,0.25)" : "1px solid rgba(255,255,255,0.12)",
+      background: active ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.05)",
+      color: "#fff",
+      fontSize: `${15 * uiScale}px`,
+      fontWeight: 500,
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+      padding: "0 12px",
+    }),
+    actionButton: {
+      width: "100%",
+      minHeight: window.innerWidth <= 768 ? "54px" : "60px",
+      borderRadius: "16px",
+      border: "1px solid rgba(255,255,255,0.1)",
+      background: "rgba(255,255,255,0.04)",
+      color: "#fff",
+      fontSize: `${15 * uiScale}px`,
+      fontWeight: 500,
+      cursor: "pointer",
+      padding: "0 12px",
+    },
+    dangerButton: {
+      width: "100%",
+      minHeight: window.innerWidth <= 768 ? "54px" : "60px",
+      borderRadius: "16px",
+      border: "1px solid rgba(255,255,255,0.1)",
+      background: "rgba(255,255,255,0.16)",
+      color: "#fff",
+      fontSize: `${15 * uiScale}px`,
+      fontWeight: 600,
+      cursor: "pointer",
+      padding: "0 12px",
+    },
+    controlCard: {
+      background: "rgba(0,0,0,0.24)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: "16px",
+      padding: window.innerWidth <= 768 ? "12px" : "14px",
+      minHeight: "90px",
+      boxSizing: "border-box",
+    },
+    labelRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: "10px",
+      alignItems: "center",
+      marginBottom: "12px",
+      color: "#e8e8e8",
+      fontSize: `${14 * uiScale}px`,
+    },
+    slider: {
+      width: "100%",
+    },
+    hidden: {
+      display: "none",
+    },
+    select: {
+      width: "100%",
+      minHeight: window.innerWidth <= 768 ? "52px" : "58px",
+      borderRadius: "16px",
+      border: "1px solid rgba(255,255,255,0.12)",
+      background: "rgba(255,255,255,0.05)",
+      color: "#fff",
+      padding: "0 14px",
+      fontSize: `${15 * uiScale}px`,
+      outline: "none",
+    },
+    fileBox: {
+      display: "flex",
+      alignItems: window.innerWidth <= 768 ? "flex-start" : "center",
+      justifyContent: "space-between",
+      flexDirection: window.innerWidth <= 768 ? "column" : "row",
+      gap: "10px",
+      background: "rgba(0,0,0,0.24)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: "16px",
+      padding: "12px",
+      marginBottom: "10px",
+    },
+    fileName: {
+      color: "rgba(255,255,255,0.8)",
+      fontSize: `${14 * uiScale}px`,
+      wordBreak: "break-all",
+    },
+    status: {
+      marginTop: "8px",
+      color: "rgba(255,255,255,0.68)",
+      fontSize: `${13 * uiScale}px`,
+      textAlign: "center",
+    },
+    footerButtons: {
+      display: "grid",
+      gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr",
+      gap: "10px",
+      marginTop: "10px",
+    },
   };
-
-  const sliderStyle = {
-    width: "100%",
-    cursor: "pointer",
-  };
-
-  const chipButton = (active) => ({
-    borderRadius: "12px",
-    padding: "10px 12px",
-    border: active ? "1px solid rgba(255,255,255,0.4)" : "1px solid rgba(255,255,255,0.12)",
-    background: active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: 600,
-  });
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#080808",
-        color: "white",
-        padding: "12px 12px 170px",
-        boxSizing: "border-box",
-        overflowX: "hidden",
-      }}
-    >
-      <img
-        src={logoSrc}
-        alt="logo"
-        style={{
-          position: "fixed",
-          top: "14px",
-          left: "14px",
-          width: "64px",
-          height: "64px",
-          objectFit: "contain",
-          zIndex: 50,
-          pointerEvents: "none",
-          filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.35))",
-        }}
-      />
-
-      <div
-        style={{
-          width: "100%",
-          display: "grid",
-          justifyItems: "center",
-          paddingTop: "10px",
-        }}
-      >
-        <canvas
-          ref={previewCanvasRef}
-          style={{
-            width: "min(100%, 1280px)",
-            maxHeight: "calc(100vh - 220px)",
-            objectFit: "contain",
-            borderRadius: "20px",
-            background: "#111",
-            boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
-          }}
-        />
-      </div>
-
-      <video
-        ref={sourceVideoRef}
-        playsInline
-        muted
-        style={{ display: "none" }}
-        onLoadedMetadata={handleLoadedMetadata}
-      />
-      <video ref={exportVideoRef} playsInline muted style={{ display: "none" }} />
-
-      {error && (
-        <div
-          style={{
-            position: "fixed",
-            top: "16px",
-            left: "92px",
-            right: "16px",
-            zIndex: 60,
-            padding: "10px 14px",
-            borderRadius: "14px",
-            background: "rgba(255,80,80,0.14)",
-            border: "1px solid rgba(255,80,80,0.28)",
-            color: "#ffd2d2",
-            fontSize: "13px",
-          }}
-        >
-          {error}
+    <div style={styles.page}>
+      <div style={styles.shell}>
+        <div style={styles.logoRail}>
+          <img src="/logo.png" alt="logo" style={styles.logo} />
         </div>
-      )}
 
-      <div
-        style={{
-          position: "fixed",
-          left: "50%",
-          bottom: "14px",
-          transform: "translateX(-50%)",
-          width: "min(1080px, calc(100vw - 16px))",
-          zIndex: 40,
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            pointerEvents: "auto",
-            borderRadius: "22px",
-            background: "rgba(12,12,12,0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-            padding: "12px",
-            display: "grid",
-            gap: "10px",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: "8px",
-            }}
-          >
-            <button
-              onClick={() => setSourceMode("webcam")}
-              style={chipButton(sourceMode === "webcam")}
-            >
-              웹캠
-            </button>
-            <button
-              onClick={() => setSourceMode("file")}
-              style={chipButton(sourceMode === "file")}
-            >
-              영상 파일
-            </button>
+        <div style={styles.main}>
+          <div style={styles.previewWrap}>
+            <canvas ref={outputCanvasRef} style={styles.previewCanvas} />
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.2fr 1fr 1fr",
-              gap: "8px",
-            }}
-          >
-            <label
-              style={{
-                ...chipButton(false),
-                display: "grid",
-                placeItems: "center",
-                minHeight: "44px",
-              }}
-            >
-              영상 업로드
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleUploadChange}
-                style={{ display: "none" }}
-              />
-            </label>
-
-            {!isPreviewRecording ? (
+          <div style={styles.controls}>
+            <div style={styles.grid2}>
               <button
-                onClick={startPreviewRecording}
-                disabled={!ready}
-                style={{
-                  ...chipButton(false),
-                  minHeight: "44px",
-                  opacity: ready ? 1 : 0.45,
-                  cursor: ready ? "pointer" : "not-allowed",
+                style={styles.button(mode === "webcam")}
+                onClick={() => {
+                  setMode("webcam");
+                  setupWebcam();
                 }}
               >
-                웹캠 녹화 저장
+                웹캠
               </button>
-            ) : (
+
               <button
-                onClick={stopPreviewRecording}
-                style={{
-                  ...chipButton(true),
-                  minHeight: "44px",
+                style={styles.button(mode === "file")}
+                onClick={() => {
+                  setMode("file");
                 }}
               >
-                녹화 종료
+                영상 파일
               </button>
-            )}
-
-            <button
-              onClick={downloadFrame}
-              style={{
-                ...chipButton(false),
-                minHeight: "44px",
-              }}
-            >
-              프레임 저장
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              gap: "10px",
-            }}
-          >
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>닷 크기 {dotScale.toFixed(2)}</div>
-              <input
-                type="range"
-                min="0.2"
-                max="1.4"
-                step="0.01"
-                value={dotScale}
-                onChange={(e) => setDotScale(Number(e.target.value))}
-                style={sliderStyle}
-              />
             </div>
 
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>간격 {cellSize}</div>
-              <input
-                type="range"
-                min="4"
-                max="28"
-                step="1"
-                value={cellSize}
-                onChange={(e) => setCellSize(Number(e.target.value))}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>밝기 {brightness.toFixed(2)}</div>
-              <input
-                type="range"
-                min="-0.4"
-                max="0.4"
-                step="0.01"
-                value={brightness}
-                onChange={(e) => setBrightness(Number(e.target.value))}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>대비 {contrast.toFixed(2)}</div>
-              <input
-                type="range"
-                min="0.4"
-                max="2.4"
-                step="0.01"
-                value={contrast}
-                onChange={(e) => setContrast(Number(e.target.value))}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>감마 {gamma.toFixed(2)}</div>
-              <input
-                type="range"
-                min="0.4"
-                max="2.4"
-                step="0.01"
-                value={gamma}
-                onChange={(e) => setGamma(Number(e.target.value))}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>배경톤 {bgTone}</div>
-              <input
-                type="range"
-                min="0"
-                max="80"
-                step="1"
-                value={bgTone}
-                onChange={(e) => setBgTone(Number(e.target.value))}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>색상 모드</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-                <button
-                  onClick={() => setColorMode("mono")}
-                  style={chipButton(colorMode === "mono")}
+            <div style={styles.fileBox}>
+              <label style={{ width: window.innerWidth <= 768 ? "100%" : "auto" }}>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileChange}
+                  style={styles.hidden}
+                />
+                <span
+                  style={{
+                    ...styles.button(true),
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: window.innerWidth <= 768 ? "100%" : "160px",
+                  }}
                 >
-                  흑백
-                </button>
-                <button
-                  onClick={() => setColorMode("color")}
-                  style={chipButton(colorMode === "color")}
-                >
-                  컬러
-                </button>
+                  파일 선택
+                </span>
+              </label>
+
+              <div style={styles.fileName}>
+                {selectedFileName || "선택한 파일 없음"}
               </div>
             </div>
 
-            <div style={controlItemStyle}>
-              <div style={labelStyle}>모양</div>
+            <div style={styles.grid3}>
+              <button style={styles.actionButton} onClick={saveFrame}>
+                프레임 저장
+              </button>
+              <button style={styles.actionButton} onClick={saveOriginalWebcam}>
+                웹캠 녹화 저장
+              </button>
+              <button
+                style={isRecording ? styles.dangerButton : styles.actionButton}
+                onClick={saveProcessedVideo}
+              >
+                {isRecording ? "하프톤 녹화 종료" : "하프톤 영상 저장"}
+              </button>
+            </div>
+
+            <div style={styles.grid4}>
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>닷 크기</span>
+                  <span>{dotSize.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0.5"
+                  max="20"
+                  step="0.05"
+                  value={dotSize}
+                  onChange={(e) => setDotSize(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>간격</span>
+                  <span>{spacing}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="4"
+                  max="30"
+                  step="1"
+                  value={spacing}
+                  onChange={(e) => setSpacing(parseInt(e.target.value, 10))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>밝기</span>
+                  <span>{brightness.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="-0.6"
+                  max="0.6"
+                  step="0.01"
+                  value={brightness}
+                  onChange={(e) => setBrightness(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>대비</span>
+                  <span>{contrast.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0.4"
+                  max="3"
+                  step="0.01"
+                  value={contrast}
+                  onChange={(e) => setContrast(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>감마</span>
+                  <span>{gamma.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0.3"
+                  max="3"
+                  step="0.01"
+                  value={gamma}
+                  onChange={(e) => setGamma(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>배경톤</span>
+                  <span>{backgroundTone}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0"
+                  max="20"
+                  step="1"
+                  value={backgroundTone}
+                  onChange={(e) => setBackgroundTone(parseInt(e.target.value, 10))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>소프트니스</span>
+                  <span>{softness.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0.15"
+                  max="2"
+                  step="0.01"
+                  value={softness}
+                  onChange={(e) => setSoftness(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div style={styles.controlCard}>
+                <div style={styles.labelRow}>
+                  <span>임계값</span>
+                  <span>{threshold.toFixed(2)}</span>
+                </div>
+                <input
+                  style={styles.slider}
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={threshold}
+                  onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div style={styles.grid4}>
+              <button
+                style={styles.button(colorMode === "bw")}
+                onClick={() => setColorMode("bw")}
+              >
+                흑백
+              </button>
+              <button
+                style={styles.button(colorMode === "rgb")}
+                onClick={() => setColorMode("rgb")}
+              >
+                RGB
+              </button>
+              <button
+                style={styles.button(colorMode === "cmyk")}
+                onClick={() => setColorMode("cmyk")}
+              >
+                CMYK
+              </button>
+
               <select
                 value={shape}
                 onChange={(e) => setShape(e.target.value)}
-                style={{
-                  borderRadius: "12px",
-                  padding: "10px 12px",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "white",
-                }}
+                style={styles.select}
               >
-                {shapeOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
+                <option value="circle">원</option>
+                <option value="square">사각형</option>
+                <option value="triangle">삼각형</option>
+                <option value="diamond">다이아</option>
+                <option value="star">별</option>
               </select>
             </div>
-          </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              gap: "8px",
-            }}
-          >
-            <button onClick={() => setInvert((v) => !v)} style={chipButton(invert)}>
-              반전 {invert ? "ON" : "OFF"}
-            </button>
+            <div style={styles.grid4}>
+              <button style={styles.button(invert)} onClick={() => setInvert((v) => !v)}>
+                반전 {invert ? "ON" : "OFF"}
+              </button>
+              <button style={styles.button(mirror)} onClick={() => setMirror((v) => !v)}>
+                웹캠 좌우반전 {mirror ? "ON" : "OFF"}
+              </button>
+              <button style={styles.button(showGrid)} onClick={() => setShowGrid((v) => !v)}>
+                셀 라인 {showGrid ? "ON" : "OFF"}
+              </button>
+              <button style={styles.button(false)} onClick={resetControls}>
+                기본값 복원
+              </button>
+            </div>
 
-            <button
-              onClick={() => setMirrorWebcam((v) => !v)}
-              style={chipButton(mirrorWebcam)}
-            >
-              웹캠 좌우반전 {mirrorWebcam ? "ON" : "OFF"}
-            </button>
+            <div style={styles.footerButtons}>
+              <button style={styles.actionButton} onClick={setupWebcam}>
+                웹캠 프리뷰 활성화
+              </button>
+              <button
+                style={styles.actionButton}
+                onClick={() => {
+                  stopAll();
+                  setIsRendering(false);
+                  setIsCameraReady(false);
+                  setStatusText("중지됨");
+                }}
+              >
+                중지
+              </button>
+            </div>
 
-            <button
-              onClick={() => setShowGridStroke((v) => !v)}
-              style={chipButton(showGridStroke)}
-            >
-              셀 라인 {showGridStroke ? "ON" : "OFF"}
-            </button>
-
-            <button onClick={resetValues} style={chipButton(false)}>
-              기본값 복원
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px",
-            }}
-          >
-            <button
-              onClick={exportProcessedVideo}
-              disabled={isExporting || sourceMode !== "file"}
-              style={{
-                borderRadius: "14px",
-                padding: "12px",
-                border: "none",
-                background:
-                  isExporting || sourceMode !== "file"
-                    ? "rgba(255,255,255,0.12)"
-                    : "white",
-                color:
-                  isExporting || sourceMode !== "file"
-                    ? "rgba(255,255,255,0.45)"
-                    : "black",
-                cursor:
-                  isExporting || sourceMode !== "file"
-                    ? "not-allowed"
-                    : "pointer",
-                fontSize: "14px",
-                minHeight: "46px",
-                fontWeight: 700,
-              }}
-            >
-              {isExporting
-                ? `하프톤 영상 저장 중 ${Math.round(exportProgress * 100)}%`
-                : "하프톤 영상 저장"}
-            </button>
-
-            <div
-              style={{
-                borderRadius: "14px",
-                padding: "12px",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                display: "grid",
-                alignItems: "center",
-                fontSize: "13px",
-                color: "rgba(255,255,255,0.78)",
-              }}
-            >
-              {ready
-                ? sourceMode === "webcam"
-                  ? "웹캠 프리뷰 활성화"
-                  : "영상 파일 프리뷰 활성화"
-                : "소스를 준비 중입니다"}
+            <div style={styles.status}>
+              상태: {statusText}
+              {mode === "webcam" && isCameraReady ? " / 웹캠 연결됨" : ""}
+              {isRendering ? " / 렌더링 중" : ""}
             </div>
           </div>
         </div>
       </div>
+
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        autoPlay
+        style={{ display: "none" }}
+      />
+      <canvas ref={hiddenCanvasRef} style={{ display: "none" }} />
     </div>
   );
 }
