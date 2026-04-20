@@ -910,7 +910,8 @@ export default function HalftoneWebcamApp() {
               }}
             >
               <div style={{ fontSize: "28px", fontWeight: 700, lineHeight: 1.05 }}>
-                Halftone Camera / Video
+             <img src="/logo.png" alt="05d logo" style={{ width: "72px", height: "72px", objectFit: "contain", marginBottom: "18px" }} />  
+              Halftone Camera / Video
               </div>
               <div
                 style={{
