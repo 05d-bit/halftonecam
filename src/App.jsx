@@ -897,10 +897,7 @@ export default function HalftoneWebcamApp() {
 
             <div
               style={{
-                position: "absolute",
-                top: "16px",
-                left: "16px",
-                zIndex: 10,
+                margin: "20px",
                 padding: "12px 14px",
                 borderRadius: "18px",
                 background: "rgba(0,0,0,0.45)",
