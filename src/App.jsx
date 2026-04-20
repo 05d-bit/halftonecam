@@ -412,6 +412,13 @@ export default function App() {
     const step = Math.max(4, cellSize);
     const half = step / 2;
 
+    // step(cellSize) = dot spacing
+    // dotScale = actual dot size
+    const monoBaseRadius = dotScale * 6.0;
+    const rgbBaseRadius = dotScale * 3.8;
+    const cmyBaseRadius = dotScale * 3.2;
+    const kBaseRadius = dotScale * 2.3;
+
     for (let y = 0; y < displayHeight; y += step) {
       for (let x = 0; x < displayWidth; x += step) {
         const px = Math.min(displayWidth - 1, Math.floor(x + half));
@@ -425,7 +432,8 @@ export default function App() {
         if (colorMode === "bw") {
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
           const tone = processTone(lum, gamma, contrast, brightness, invert);
-          const size = tone * (step * 0.5) * dotScale;
+          const maxRadius = Math.min(monoBaseRadius, step * 0.48);
+          const size = tone * maxRadius;
 
           ctx.fillStyle = "#ffffff";
           drawShape(ctx, shape, x + half, y + half, size);
@@ -435,15 +443,17 @@ export default function App() {
           const rr = processTone(r, gamma, contrast, brightness, invert);
           const gg = processTone(g, gamma, contrast, brightness, invert);
           const bb = processTone(b, gamma, contrast, brightness, invert);
+          const maxRadius = Math.min(rgbBaseRadius, step * 0.26);
+          const offset = step * 0.18;
 
           ctx.fillStyle = "rgb(255,60,60)";
-          drawShape(ctx, shape, x + half - step * 0.18, y + half, rr * (step * 0.32) * dotScale);
+          drawShape(ctx, shape, x + half - offset, y + half, rr * maxRadius);
 
           ctx.fillStyle = "rgb(60,255,110)";
-          drawShape(ctx, shape, x + half + step * 0.18, y + half, gg * (step * 0.32) * dotScale);
+          drawShape(ctx, shape, x + half + offset, y + half, gg * maxRadius);
 
           ctx.fillStyle = "rgb(80,160,255)";
-          drawShape(ctx, shape, x + half, y + half - step * 0.18, bb * (step * 0.32) * dotScale);
+          drawShape(ctx, shape, x + half, y + half - offset, bb * maxRadius);
         }
 
         if (colorMode === "cmyk") {
@@ -452,23 +462,24 @@ export default function App() {
           const yv = processTone(255 - b, gamma, contrast, brightness, invert);
           const kBase = Math.min(255 - r, 255 - g, 255 - b);
           const k = processTone(kBase, gamma, contrast, brightness, invert);
+          const cmyMaxRadius = Math.min(cmyBaseRadius, step * 0.22);
+          const kMaxRadius = Math.min(kBaseRadius, step * 0.18);
 
           ctx.fillStyle = "rgb(0,255,255)";
-          drawShape(ctx, shape, x + half - step * 0.16, y + half - step * 0.12, c * (step * 0.27) * dotScale);
+          drawShape(ctx, shape, x + half - step * 0.16, y + half - step * 0.12, c * cmyMaxRadius);
 
           ctx.fillStyle = "rgb(255,0,255)";
-          drawShape(ctx, shape, x + half + step * 0.16, y + half - step * 0.12, m * (step * 0.27) * dotScale);
+          drawShape(ctx, shape, x + half + step * 0.16, y + half - step * 0.12, m * cmyMaxRadius);
 
           ctx.fillStyle = "rgb(255,255,0)";
-          drawShape(ctx, shape, x + half, y + half + step * 0.14, yv * (step * 0.27) * dotScale);
+          drawShape(ctx, shape, x + half, y + half + step * 0.14, yv * cmyMaxRadius);
 
           ctx.fillStyle = "rgb(20,20,20)";
-          drawShape(ctx, shape, x + half, y + half, k * (step * 0.2) * dotScale);
+          drawShape(ctx, shape, x + half, y + half, k * kMaxRadius);
         }
 
         if (showGridStroke) {
           ctx.strokeStyle = "rgba(255,255,255,0.06)";
-          ctx.lineWidth = 1;
           ctx.strokeRect(x, y, step, step);
         }
       }
