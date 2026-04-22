@@ -66,16 +66,29 @@ function drawShape(ctx, shape, x, y, size) {
 
 function getMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
-  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) {
-    return "video/webm;codecs=vp9";
+
+  const candidates = [
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+
+  for (const type of candidates) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
   }
-  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) {
-    return "video/webm;codecs=vp8";
-  }
-  if (MediaRecorder.isTypeSupported("video/webm")) {
-    return "video/webm";
-  }
+
   return "";
+}
+
+function getVideoExtension(mimeType) {
+  if (!mimeType) return "webm";
+  if (mimeType.includes("mp4")) return "mp4";
+  return "webm";
 }
 
 function processTone(v, gamma, contrast, brightness, invert) {
@@ -516,10 +529,12 @@ export default function App() {
     };
 
     recorder.onstop = () => {
+      const finalType = mimeType || "video/webm";
+      const ext = getVideoExtension(finalType);
       const blob = new Blob(previewRecordedChunksRef.current, {
-        type: mimeType || "video/webm",
+        type: finalType,
       });
-      downloadBlob(blob, `halftone-webcam-${Date.now()}.webm`);
+      downloadBlob(blob, `halftone-webcam-${Date.now()}.${ext}`);
       previewRecordedChunksRef.current = [];
     };
 
@@ -604,8 +619,10 @@ export default function App() {
       recorder.stop();
       await done;
 
-      const blob = new Blob(chunks, { type: mimeType || "video/webm" });
-      downloadBlob(blob, `halftone-video-${Date.now()}.webm`);
+      const finalType = mimeType || "video/webm";
+      const ext = getVideoExtension(finalType);
+      const blob = new Blob(chunks, { type: finalType });
+      downloadBlob(blob, `halftone-video-${Date.now()}.${ext}`);
     } catch {
       setError("영상 저장 중 문제가 발생했습니다.");
     } finally {
