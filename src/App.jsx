@@ -901,7 +901,7 @@ export default function App() {
               </div>
               <input
                 type="range"
-                min="0.2"
+                min="1"
                 max="10"
                 step="0.01"
                 value={dotScale}
