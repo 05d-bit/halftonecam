@@ -902,7 +902,7 @@ export default function App() {
               <input
                 type="range"
                 min="0.2"
-                max="1.4"
+                max="10"
                 step="0.01"
                 value={dotScale}
                 onChange={(e) => setDotScale(Number(e.target.value))}
