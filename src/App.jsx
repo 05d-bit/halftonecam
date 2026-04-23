@@ -100,6 +100,136 @@ function processTone(v, gamma, contrast, brightness, invert) {
   return value;
 }
 
+function Win95Icon({ type, size = 16 }) {
+  const wrapStyle = {
+    width: size + 6,
+    height: size + 6,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#c0c0c0",
+    borderTop: "2px solid #ffffff",
+    borderLeft: "2px solid #ffffff",
+    borderRight: "2px solid #000000",
+    borderBottom: "2px solid #000000",
+    boxSizing: "border-box",
+    flexShrink: 0,
+  };
+
+  if (type === "record") {
+    return (
+      <span style={wrapStyle}>
+        <span
+          style={{
+            width: size - 4,
+            height: size - 4,
+            borderRadius: "50%",
+            background: "#d40000",
+            border: "1px solid #6b0000",
+            display: "block",
+          }}
+        />
+      </span>
+    );
+  }
+
+  if (type === "camera") {
+    return (
+      <span style={wrapStyle}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 16 16"
+          style={{ imageRendering: "pixelated" }}
+        >
+          <rect x="1" y="5" width="14" height="8" fill="#c0c0c0" stroke="#000" strokeWidth="1" />
+          <rect x="4" y="3" width="4" height="2" fill="#c0c0c0" stroke="#000" strokeWidth="1" />
+          <rect x="5" y="7" width="6" height="4" fill="#000080" stroke="#000" strokeWidth="1" />
+          <rect x="7" y="8" width="2" height="2" fill="#ffffff" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (type === "disk") {
+    return (
+      <span style={wrapStyle}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 16 16"
+          style={{ imageRendering: "pixelated" }}
+        >
+          <rect x="1" y="1" width="14" height="14" fill="#c0c0c0" stroke="#000" strokeWidth="1" />
+          <rect x="3" y="3" width="8" height="4" fill="#000080" />
+          <rect x="4" y="9" width="8" height="4" fill="#ffffff" stroke="#000" strokeWidth="1" />
+          <rect x="11" y="3" width="2" height="3" fill="#000" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (type === "reset") {
+    return (
+      <span style={wrapStyle}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 16 16"
+          style={{ imageRendering: "pixelated" }}
+        >
+          <path
+            d="M8 2 A6 6 0 1 0 14 8"
+            fill="none"
+            stroke="#000"
+            strokeWidth="2"
+          />
+          <path d="M9 2 H14 V7" fill="none" stroke="#000" strokeWidth="2" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (type === "folder") {
+    return (
+      <span style={wrapStyle}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 16 16"
+          style={{ imageRendering: "pixelated" }}
+        >
+          <path d="M1 5 H6 L7 4 H15 V14 H1 Z" fill="#d8d000" stroke="#000" strokeWidth="1" />
+          <rect x="1" y="6" width="14" height="8" fill="#ece45a" stroke="#000" strokeWidth="1" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (type === "webcam") {
+    return (
+      <span style={wrapStyle}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 16 16"
+          style={{ imageRendering: "pixelated" }}
+        >
+          <rect x="2" y="4" width="9" height="7" fill="#c0c0c0" stroke="#000" strokeWidth="1" />
+          <rect x="11" y="6" width="3" height="3" fill="#000080" stroke="#000" strokeWidth="1" />
+          <rect x="5" y="11" width="3" height="2" fill="#000" />
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span style={wrapStyle}>
+      <span style={{ width: size - 4, height: size - 4, background: "#000" }} />
+    </span>
+  );
+}
+
 export default function App() {
   const sourceVideoRef = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -137,7 +267,7 @@ export default function App() {
 
   const isMobile = useMemo(() => {
     if (typeof window === "undefined") return false;
-    return window.innerWidth <= 900;
+    return window.innerWidth <= 980;
   }, []);
 
   const shapeOptions = [
@@ -379,7 +509,7 @@ export default function App() {
     const vh = video.videoHeight || 720;
 
     const maxPreviewWidth = isMobile
-      ? Math.min(window.innerWidth - 28, 860)
+      ? Math.min(window.innerWidth - 36, 860)
       : Math.min(window.innerWidth - 470, 1100);
 
     const displayWidth = Math.max(320, maxPreviewWidth);
@@ -476,13 +606,31 @@ export default function App() {
           const kMaxRadius = Math.min(kBaseRadius, step * 0.18);
 
           ctx.fillStyle = "rgb(0,255,255)";
-          drawShape(ctx, shape, x + half - step * 0.16, y + half - step * 0.12, c * cmyMaxRadius);
+          drawShape(
+            ctx,
+            shape,
+            x + half - step * 0.16,
+            y + half - step * 0.12,
+            c * cmyMaxRadius
+          );
 
           ctx.fillStyle = "rgb(255,0,255)";
-          drawShape(ctx, shape, x + half + step * 0.16, y + half - step * 0.12, m * cmyMaxRadius);
+          drawShape(
+            ctx,
+            shape,
+            x + half + step * 0.16,
+            y + half - step * 0.12,
+            m * cmyMaxRadius
+          );
 
           ctx.fillStyle = "rgb(255,255,0)";
-          drawShape(ctx, shape, x + half, y + half + step * 0.14, yv * cmyMaxRadius);
+          drawShape(
+            ctx,
+            shape,
+            x + half,
+            y + half + step * 0.14,
+            yv * cmyMaxRadius
+          );
 
           ctx.fillStyle = "rgb(20,20,20)";
           drawShape(ctx, shape, x + half, y + half, k * kMaxRadius);
@@ -637,826 +785,880 @@ export default function App() {
   }
 
   const ui = {
-    paper: "#ece7dc",
-    panel: "#d7d1c4",
-    panelDeep: "#c9c2b5",
-    ink: "#1b1a17",
-    muted: "#5c564d",
-    line: "#2f2a24",
-    accent: "#111111",
-    danger: "#8f2f2f",
-    success: "#1b4f2b",
-    shadow: "4px 4px 0 #2f2a24",
-    inset: "inset 1px 1px 0 #f8f4ec, inset -1px -1px 0 #a9a191",
-    mono: '"IBM Plex Mono", "SFMono-Regular", "Menlo", "Consolas", monospace',
-    sans: '"Chicago", "Geneva", "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+    desktop: "#008080",
+    face: "#c0c0c0",
+    light: "#ffffff",
+    shadow: "#808080",
+    dark: "#000000",
+    mid: "#dfdfdf",
+    title: "#000080",
+    titleText: "#ffffff",
+    text: "#000000",
+    disabled: "#7a7a7a",
+    success: "#00aa00",
+    error: "#aa0000",
+    teal: "#008080",
   };
 
-  const btn = (active = false) => ({
-    borderRadius: "0",
-    minHeight: "44px",
-    padding: "10px 12px",
-    border: `2px solid ${ui.line}`,
-    background: active ? ui.ink : ui.panel,
-    color: active ? "#f4efe6" : ui.ink,
-    fontSize: "13px",
-    fontWeight: 700,
-    letterSpacing: "0.02em",
-    cursor: "pointer",
-    width: "100%",
-    boxShadow: active ? "none" : `2px 2px 0 ${ui.line}`,
-    transition: "transform 0.08s ease, box-shadow 0.08s ease",
-    fontFamily: ui.mono,
-    textTransform: "uppercase",
-  });
+  const fontStack =
+    '"MS Sans Serif", Tahoma, Geneva, Verdana, sans-serif';
 
-  const sliderWrap = {
-    borderRadius: "0",
-    border: `2px solid ${ui.line}`,
-    background: "#f4efe6",
-    padding: "12px",
+  const windowStyle = {
+    background: ui.face,
+    borderTop: `2px solid ${ui.light}`,
+    borderLeft: `2px solid ${ui.light}`,
+    borderRight: `2px solid ${ui.dark}`,
+    borderBottom: `2px solid ${ui.dark}`,
+    boxShadow: `1px 1px 0 ${ui.dark}`,
+    boxSizing: "border-box",
+  };
+
+  const insetStyle = {
+    background: "#ffffff",
+    borderTop: `2px solid ${ui.shadow}`,
+    borderLeft: `2px solid ${ui.shadow}`,
+    borderRight: `2px solid ${ui.light}`,
+    borderBottom: `2px solid ${ui.light}`,
+    boxSizing: "border-box",
+  };
+
+  const groupBox = {
+    ...windowStyle,
+    padding: "10px",
+    background: ui.face,
     display: "grid",
-    gap: "8px",
-    boxShadow: `2px 2px 0 ${ui.line}`,
-  };
-
-  const sectionTitle = {
-    fontSize: "11px",
-    color: ui.muted,
-    display: "flex",
-    justifyContent: "space-between",
     gap: "10px",
-    fontFamily: ui.mono,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
   };
 
-  const panelBox = {
-    borderRadius: "0",
-    border: `2px solid ${ui.line}`,
-    background: ui.panel,
-    boxShadow: `3px 3px 0 ${ui.line}`,
+  const sectionLabel = {
+    fontSize: "11px",
+    fontWeight: 400,
+    color: ui.text,
+    fontFamily: fontStack,
+    letterSpacing: "0.02em",
   };
 
-  const labelChip = {
+  const valueLabel = {
+    fontSize: "12px",
+    color: ui.text,
+    fontFamily: fontStack,
+  };
+
+  const btn = (active = false, disabled = false) => ({
+    minHeight: "40px",
+    width: "100%",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "28px",
-    padding: "0 10px",
-    border: `2px solid ${ui.line}`,
-    background: "#f4efe6",
-    color: ui.ink,
+    gap: "8px",
+    padding: "6px 10px",
+    background: ui.face,
+    color: disabled ? ui.disabled : ui.text,
+    borderTop: `2px solid ${active ? ui.shadow : ui.light}`,
+    borderLeft: `2px solid ${active ? ui.shadow : ui.light}`,
+    borderRight: `2px solid ${active ? ui.light : ui.dark}`,
+    borderBottom: `2px solid ${active ? ui.light : ui.dark}`,
+    boxShadow: active ? `inset 1px 1px 0 ${ui.dark}` : "none",
+    fontFamily: fontStack,
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",
+  });
+
+  const smallBadge = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "24px",
+    padding: "2px 8px",
+    background: ui.face,
+    borderTop: `2px solid ${ui.light}`,
+    borderLeft: `2px solid ${ui.light}`,
+    borderRight: `2px solid ${ui.dark}`,
+    borderBottom: `2px solid ${ui.dark}`,
     fontSize: "11px",
     fontWeight: 700,
-    fontFamily: ui.mono,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    fontFamily: fontStack,
+    color: ui.text,
+    boxSizing: "border-box",
+  };
+
+  const titleBarButton = {
+    width: "18px",
+    height: "18px",
+    background: ui.face,
+    borderTop: `2px solid ${ui.light}`,
+    borderLeft: `2px solid ${ui.light}`,
+    borderRight: `2px solid ${ui.dark}`,
+    borderBottom: `2px solid ${ui.dark}`,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: ui.text,
+    fontSize: "12px",
+    fontWeight: 700,
+    lineHeight: 1,
+    boxSizing: "border-box",
+  };
+
+  const sliderWrap = {
+    ...windowStyle,
+    padding: "10px",
+    background: ui.face,
+    display: "grid",
+    gap: "8px",
   };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background:
-          "linear-gradient(180deg, #d7d1c4 0%, #e6e0d4 28%, #ece7dc 100%)",
-        color: ui.ink,
+        background: ui.desktop,
         padding: isMobile ? "10px" : "14px",
-        fontFamily: ui.sans,
+        fontFamily: fontStack,
         boxSizing: "border-box",
+        overflowX: "hidden",
       }}
     >
+      <style>{`
+        .win95-range {
+          width: 100%;
+          appearance: none;
+          -webkit-appearance: none;
+          background: transparent;
+          height: 22px;
+          margin: 0;
+        }
+
+        .win95-range::-webkit-slider-runnable-track {
+          height: 6px;
+          background: #d4d0c8;
+          border-top: 2px solid #808080;
+          border-left: 2px solid #808080;
+          border-right: 2px solid #ffffff;
+          border-bottom: 2px solid #ffffff;
+        }
+
+        .win95-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 20px;
+          background: #c0c0c0;
+          border-top: 2px solid #ffffff;
+          border-left: 2px solid #ffffff;
+          border-right: 2px solid #000000;
+          border-bottom: 2px solid #000000;
+          margin-top: -8px;
+          cursor: pointer;
+        }
+
+        .win95-range::-moz-range-track {
+          height: 6px;
+          background: #d4d0c8;
+          border-top: 2px solid #808080;
+          border-left: 2px solid #808080;
+          border-right: 2px solid #ffffff;
+          border-bottom: 2px solid #ffffff;
+        }
+
+        .win95-range::-moz-range-thumb {
+          width: 14px;
+          height: 20px;
+          background: #c0c0c0;
+          border-top: 2px solid #ffffff;
+          border-left: 2px solid #ffffff;
+          border-right: 2px solid #000000;
+          border-bottom: 2px solid #000000;
+          cursor: pointer;
+        }
+
+        .win95-file-input {
+          display: none;
+        }
+      `}</style>
+
       <div
         style={{
           maxWidth: "1680px",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 420px",
-          gap: "14px",
+          gap: "12px",
           alignItems: "start",
         }}
       >
-        <div
-          style={{
-            ...panelBox,
-            overflow: "hidden",
-            background: "#bdb6a7",
-            minHeight: isMobile ? "auto" : "calc(100vh - 28px)",
-          }}
-        >
+        {/* LEFT WINDOW */}
+        <div style={windowStyle}>
           <div
             style={{
+              height: "28px",
+              background: ui.title,
+              color: ui.titleText,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              gap: "12px",
-              padding: "10px 12px",
-              borderBottom: `2px solid ${ui.line}`,
-              background:
-                "repeating-linear-gradient(90deg, #cbc4b7 0, #cbc4b7 8px, #d6d0c4 8px, #d6d0c4 16px)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span style={labelChip}>HALFTONE CAM</span>
-              <span style={{ ...labelChip, background: ready ? "#dfe7d6" : "#efe0d4" }}>
-                {ready ? "READY" : "WAIT"}
-              </span>
-              <span style={labelChip}>{sourceMode === "webcam" ? "WEBCAM" : "FILE"}</span>
-            </div>
-
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              print utility preview
-            </div>
-          </div>
-
-          <div
-            style={{
-              position: "relative",
-              background:
-                "linear-gradient(180deg, #7d776d 0%, #8d8679 100%)",
-              minHeight: isMobile ? "380px" : "calc(100vh - 84px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: isMobile ? "12px" : "18px",
+              padding: "0 6px",
               boxSizing: "border-box",
             }}
           >
             <div
               style={{
-                width: "100%",
-                border: `2px solid ${ui.line}`,
-                background: "#0f0f0f",
-                boxShadow: "inset 0 0 0 4px #c9c2b5, 4px 4px 0 #2f2a24",
+                fontSize: "12px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  background: "#c0c0c0",
+                  border: "1px solid #000",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#000080",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                H
+              </span>
+              <span>Halftone Camera - Preview</span>
+            </div>
+
+            <div style={{ display: "flex", gap: "2px" }}>
+              <span style={titleBarButton}>_</span>
+              <span style={titleBarButton}>□</span>
+              <span style={titleBarButton}>×</span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: ui.face,
+              padding: isMobile ? "10px" : "12px",
+              boxSizing: "border-box",
+              minHeight: isMobile ? "auto" : "calc(100vh - 74px)",
+              display: "grid",
+              gridTemplateRows: "auto 1fr auto",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <span style={smallBadge}>HALFTONE CAM</span>
+              <span style={smallBadge}>{ready ? "READY" : "WAIT"}</span>
+              <span style={smallBadge}>{sourceMode === "webcam" ? "WEBCAM" : "VIDEO FILE"}</span>
+            </div>
+
+            <div
+              style={{
+                ...insetStyle,
+                minHeight: isMobile ? "360px" : "calc(100vh - 180px)",
+                padding: isMobile ? "10px" : "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#808080",
                 position: "relative",
                 overflow: "hidden",
               }}
             >
               <div
                 style={{
-                  position: "absolute",
-                  top: "10px",
-                  left: "10px",
-                  zIndex: 3,
-                  display: "flex",
-                  gap: "6px",
-                  flexWrap: "wrap",
+                  width: "100%",
+                  ...insetStyle,
+                  background: "#000",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
-                <span
+                <div
                   style={{
-                    ...labelChip,
-                    background: "#f4efe6",
-                    minHeight: "24px",
-                    fontSize: "10px",
+                    position: "absolute",
+                    top: "8px",
+                    left: "8px",
+                    zIndex: 3,
+                    display: "flex",
+                    gap: "6px",
+                    flexWrap: "wrap",
                   }}
                 >
-                  {colorMode}
-                </span>
-                <span
+                  <span style={smallBadge}>{String(colorMode).toUpperCase()}</span>
+                  <span style={smallBadge}>{String(shape).toUpperCase()}</span>
+                </div>
+
+                <canvas
+                  ref={previewCanvasRef}
                   style={{
-                    ...labelChip,
-                    background: "#f4efe6",
-                    minHeight: "24px",
-                    fontSize: "10px",
+                    display: "block",
+                    width: "100%",
+                    height: "auto",
+                    maxWidth: "100%",
+                    background: "#000",
                   }}
-                >
-                  {shape}
-                </span>
+                />
+
+                <img
+                  src="/logo.png"
+                  alt="logo"
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    bottom: "10px",
+                    width: isMobile ? "30px" : "38px",
+                    objectFit: "contain",
+                    imageRendering: "pixelated",
+                    opacity: 0.9,
+                    filter: "grayscale(1) contrast(1.1)",
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                ...insetStyle,
+                padding: "6px 8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                fontSize: "12px",
+                color: ui.text,
+                background: ui.face,
+              }}
+            >
+              <span>{error ? error : ready ? "Preview Active" : "Initializing..."}</span>
+              <span>
+                {sourceMode === "webcam" ? "Camera" : uploadedName || "No file"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT WINDOW */}
+        <div style={windowStyle}>
+          <div
+            style={{
+              height: "28px",
+              background: ui.title,
+              color: ui.titleText,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 6px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  background: "#c0c0c0",
+                  border: "1px solid #000",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#000080",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                C
+              </span>
+              <span>Halftone Camera - Controls</span>
+            </div>
+
+            <div style={{ display: "flex", gap: "2px" }}>
+              <span style={titleBarButton}>_</span>
+              <span style={titleBarButton}>□</span>
+              <span style={titleBarButton}>×</span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: ui.face,
+              padding: "10px",
+              boxSizing: "border-box",
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            {/* SOURCE */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Source</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                <button onClick={() => setSourceMode("webcam")} style={btn(sourceMode === "webcam")}>
+                  <Win95Icon type="webcam" />
+                  <span>WEBCAM</span>
+                </button>
+
+                <button onClick={() => setSourceMode("file")} style={btn(sourceMode === "file")}>
+                  <Win95Icon type="folder" />
+                  <span>VIDEO FILE</span>
+                </button>
               </div>
 
-              <canvas
-                ref={previewCanvasRef}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "auto",
-                  maxWidth: "100%",
-                  background: "#050505",
-                }}
-              />
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label
+                  style={{
+                    display: "grid",
+                    gap: "8px",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={sectionLabel}>Upload Video</span>
 
-              <img
-                src="/logo.png"
-                alt="logo"
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  bottom: "12px",
-                  width: isMobile ? "32px" : "42px",
-                  zIndex: 3,
-                  objectFit: "contain",
-                  opacity: 0.92,
-                  imageRendering: "pixelated",
-                  filter: "grayscale(1) contrast(1.1)",
-                }}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
+                  <label
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "120px 1fr",
+                      gap: "8px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={btn(false, false)}>
+                      <Win95Icon type="folder" />
+                      <span>BROWSE...</span>
+                    </span>
+
+                    <span
+                      style={{
+                        ...insetStyle,
+                        minHeight: "36px",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "0 8px",
+                        background: "#fff",
+                        fontSize: "12px",
+                        color: ui.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {uploadedName || "선택된 파일 없음"}
+                    </span>
+
+                    <input
+                      className="win95-file-input"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleUploadChange}
+                    />
+                  </label>
+                </label>
+
+                <div
+                  style={{
+                    ...insetStyle,
+                    background: "#fff",
+                    minHeight: "40px",
+                    padding: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "12px",
+                    color: ui.text,
+                  }}
+                >
+                  {sourceMode === "webcam"
+                    ? ready
+                      ? "웹캠 프리뷰 활성화"
+                      : "웹캠 준비 중..."
+                    : uploadedName
+                    ? "업로드한 영상 프리뷰 활성화"
+                    : "선택된 영상 파일 없음"}
+                </div>
+
+                {error ? (
+                  <div
+                    style={{
+                      ...insetStyle,
+                      background: "#fff4f4",
+                      minHeight: "40px",
+                      padding: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      fontSize: "12px",
+                      color: ui.error,
+                    }}
+                  >
+                    {error}
+                  </div>
+                ) : null}
+              </div>
             </div>
+
+            {/* COLOR MODE */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Color Process</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                <button onClick={() => setColorMode("bw")} style={btn(colorMode === "bw")}>
+                  B/W
+                </button>
+                <button onClick={() => setColorMode("rgb")} style={btn(colorMode === "rgb")}>
+                  RGB
+                </button>
+                <button onClick={() => setColorMode("cmyk")} style={btn(colorMode === "cmyk")}>
+                  CMYK
+                </button>
+              </div>
+            </div>
+
+            {/* SHAPE */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Dot Shape</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                {shapeOptions.map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => setShape(item.value)}
+                    style={{
+                      ...btn(shape === item.value),
+                      fontSize: "18px",
+                      minHeight: "44px",
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* TOGGLES */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Utility Switches</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                <button onClick={() => setInvert((v) => !v)} style={btn(invert)}>
+                  INVERT {invert ? "ON" : "OFF"}
+                </button>
+
+                <button onClick={() => setMirrorWebcam((v) => !v)} style={btn(mirrorWebcam)}>
+                  MIRROR {mirrorWebcam ? "ON" : "OFF"}
+                </button>
+
+                <button onClick={toggleCamera} style={btn(false)}>
+                  CAMERA FLIP
+                </button>
+              </div>
+
+              <button onClick={() => setShowGridStroke((v) => !v)} style={btn(showGridStroke)}>
+                CELL LINE {showGridStroke ? "ON" : "OFF"}
+              </button>
+            </div>
+
+            {/* SLIDERS */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Tone Controls</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>DOT SIZE</span>
+                    <span style={valueLabel}>{dotScale.toFixed(2)}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="0.1"
+                    max="10"
+                    step="0.01"
+                    value={dotScale}
+                    onChange={(e) => setDotScale(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>CONTRAST</span>
+                    <span style={valueLabel}>{contrast.toFixed(2)}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="0.4"
+                    max="2.2"
+                    step="0.01"
+                    value={contrast}
+                    onChange={(e) => setContrast(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>BRIGHTNESS</span>
+                    <span style={valueLabel}>{brightness.toFixed(2)}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="-0.5"
+                    max="0.5"
+                    step="0.01"
+                    value={brightness}
+                    onChange={(e) => setBrightness(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>GAMMA</span>
+                    <span style={valueLabel}>{gamma.toFixed(2)}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="0.4"
+                    max="2.4"
+                    step="0.01"
+                    value={gamma}
+                    onChange={(e) => setGamma(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>CELL</span>
+                    <span style={valueLabel}>{cellSize}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="4"
+                    max="28"
+                    step="1"
+                    value={cellSize}
+                    onChange={(e) => setCellSize(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>BG TONE</span>
+                    <span style={valueLabel}>{bgTone}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="0"
+                    max="80"
+                    step="1"
+                    value={bgTone}
+                    onChange={(e) => setBgTone(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SAVE OUTPUT */}
+            <div style={groupBox}>
+              <div style={sectionLabel}>Save / Output</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                {!isPreviewRecording ? (
+                  <button
+                    onClick={startPreviewRecording}
+                    disabled={!ready}
+                    style={btn(false, !ready)}
+                  >
+                    <Win95Icon type="record" />
+                    <span>WEBCAM REC SAVE</span>
+                  </button>
+                ) : (
+                  <button onClick={stopPreviewRecording} style={btn(true, false)}>
+                    <Win95Icon type="record" />
+                    <span>STOP RECORDING</span>
+                  </button>
+                )}
+
+                <button onClick={downloadFrame} style={btn(false, false)}>
+                  <Win95Icon type="camera" />
+                  <span>SAVE FRAME</span>
+                </button>
+
+                <button
+                  onClick={exportProcessedVideo}
+                  disabled={isExporting || sourceMode !== "file"}
+                  style={btn(isExporting, isExporting || sourceMode !== "file")}
+                >
+                  <Win95Icon type="disk" />
+                  <span>
+                    {isExporting
+                      ? `SAVE VIDEO ${Math.round(exportProgress * 100)}%`
+                      : "SAVE HALFTONE VIDEO"}
+                  </span>
+                </button>
+
+                <button onClick={resetValues} style={btn(false, false)}>
+                  <Win95Icon type="reset" />
+                  <span>RESET DEFAULT</span>
+                </button>
+              </div>
+
+              {isExporting ? (
+                <div
+                  style={{
+                    ...insetStyle,
+                    padding: "6px",
+                    background: "#fff",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "18px",
+                      background: "#ffffff",
+                      borderTop: `2px solid ${ui.shadow}`,
+                      borderLeft: `2px solid ${ui.shadow}`,
+                      borderRight: `2px solid ${ui.light}`,
+                      borderBottom: `2px solid ${ui.light}`,
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.round(exportProgress * 100)}%`,
+                        background: ui.title,
+                        transition: "width 0.1s linear",
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TASKBAR 느낌 */}
+      <div
+        style={{
+          ...windowStyle,
+          marginTop: "10px",
+          background: ui.face,
+          height: "38px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 6px",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div
+            style={{
+              ...btn(false, false),
+              width: "92px",
+              minHeight: "28px",
+              padding: "0 8px",
+              justifyContent: "flex-start",
+            }}
+          >
+            <span
+              style={{
+                width: "14px",
+                height: "14px",
+                background: ui.title,
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                fontWeight: 700,
+              }}
+            >
+              S
+            </span>
+            <span>Start</span>
+          </div>
+
+          <div
+            style={{
+              ...insetStyle,
+              height: "26px",
+              padding: "0 8px",
+              display: "flex",
+              alignItems: "center",
+              background: ui.face,
+              fontSize: "12px",
+            }}
+          >
+            Halftone Camera
           </div>
         </div>
 
         <div
           style={{
-            ...panelBox,
-            padding: "10px",
-            display: "grid",
+            ...insetStyle,
+            height: "26px",
+            padding: "0 8px",
+            display: "flex",
+            alignItems: "center",
+            background: ui.face,
+            fontSize: "12px",
             gap: "10px",
-            position: isMobile ? "static" : "sticky",
-            top: "14px",
-            background: ui.panelDeep,
           }}
         >
-          <div
-            style={{
-              ...panelBox,
-              background: "#f4efe6",
-              padding: "10px 12px",
-              boxShadow: `inset 1px 1px 0 #fffaf2, inset -1px -1px 0 #b6ae9f`,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: "12px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.02em" }}>
-                HALFTONE CAMERA
-              </div>
-              <div
-                style={{
-                  fontFamily: ui.mono,
-                  fontSize: "11px",
-                  color: ui.muted,
-                  textTransform: "uppercase",
-                }}
-              >
-                retro print control desk
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Source
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "8px",
-              }}
-            >
-              <button onClick={() => setSourceMode("webcam")} style={btn(sourceMode === "webcam")}>
-                Webcam
-              </button>
-              <button onClick={() => setSourceMode("file")} style={btn(sourceMode === "file")}>
-                Video File
-              </button>
-            </div>
-
-            <div
-              style={{
-                ...panelBox,
-                background: "#f4efe6",
-                padding: "10px",
-                display: "grid",
-                gap: "10px",
-              }}
-            >
-              <label
-                style={{
-                  display: "grid",
-                  gap: "8px",
-                  fontSize: "13px",
-                  color: ui.ink,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: ui.mono,
-                    fontSize: "11px",
-                    color: ui.muted,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Upload Video
-                </span>
-
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleUploadChange}
-                  style={{
-                    width: "100%",
-                    fontSize: "12px",
-                    fontFamily: ui.mono,
-                    color: ui.ink,
-                  }}
-                />
-              </label>
-
-              <div
-                style={{
-                  border: `2px solid ${ui.line}`,
-                  background: "#ebe4d8",
-                  padding: "8px 10px",
-                  fontFamily: ui.mono,
-                  fontSize: "11px",
-                  color: ui.ink,
-                  minHeight: "36px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {uploadedName || "NO FILE SELECTED"}
-              </div>
-
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: ui.muted,
-                  lineHeight: 1.5,
-                  fontFamily: ui.mono,
-                }}
-              >
-                {sourceMode === "webcam"
-                  ? ready
-                    ? "WEBCAM PREVIEW ACTIVE"
-                    : "PREPARING WEBCAM..."
-                  : uploadedName
-                  ? "UPLOADED VIDEO PREVIEW ACTIVE"
-                  : "WAITING FOR VIDEO FILE"}
-              </div>
-
-              {error ? (
-                <div
-                  style={{
-                    border: `2px solid ${ui.danger}`,
-                    background: "#f1d8d4",
-                    padding: "8px 10px",
-                    fontSize: "12px",
-                    color: ui.danger,
-                    lineHeight: 1.45,
-                    fontFamily: ui.mono,
-                  }}
-                >
-                  {error}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Color Process
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: "8px",
-              }}
-            >
-              <button onClick={() => setColorMode("bw")} style={btn(colorMode === "bw")}>
-                B/W
-              </button>
-              <button onClick={() => setColorMode("rgb")} style={btn(colorMode === "rgb")}>
-                RGB
-              </button>
-              <button onClick={() => setColorMode("cmyk")} style={btn(colorMode === "cmyk")}>
-                CMYK
-              </button>
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Dot Shape
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-                gap: "8px",
-              }}
-            >
-              {shapeOptions.map((item) => (
-                <button
-                  key={item.value}
-                  onClick={() => setShape(item.value)}
-                  style={{
-                    ...btn(shape === item.value),
-                    fontSize: "18px",
-                    minHeight: "48px",
-                    textTransform: "none",
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Utility Switches
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
-                gap: "8px",
-              }}
-            >
-              <button onClick={() => setInvert((v) => !v)} style={btn(invert)}>
-                Invert {invert ? "On" : "Off"}
-              </button>
-              <button onClick={() => setMirrorWebcam((v) => !v)} style={btn(mirrorWebcam)}>
-                Mirror {mirrorWebcam ? "On" : "Off"}
-              </button>
-              <button onClick={toggleCamera} style={btn(false)}>
-                Camera Flip
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowGridStroke((v) => !v)}
-              style={btn(showGridStroke)}
-            >
-              Cell Line {showGridStroke ? "On" : "Off"}
-            </button>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "10px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Tone Controls
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                gap: "10px",
-              }}
-            >
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Dot Size
-                </div>
-                <div style={sectionTitle}>
-                  <span>Scale</span>
-                  <span>{dotScale.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="10"
-                  step="0.01"
-                  value={dotScale}
-                  onChange={(e) => setDotScale(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Contrast
-                </div>
-                <div style={sectionTitle}>
-                  <span>Level</span>
-                  <span>{contrast.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="2.2"
-                  step="0.01"
-                  value={contrast}
-                  onChange={(e) => setContrast(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Brightness
-                </div>
-                <div style={sectionTitle}>
-                  <span>Level</span>
-                  <span>{brightness.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-0.5"
-                  max="0.5"
-                  step="0.01"
-                  value={brightness}
-                  onChange={(e) => setBrightness(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Gamma
-                </div>
-                <div style={sectionTitle}>
-                  <span>Level</span>
-                  <span>{gamma.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="2.4"
-                  step="0.01"
-                  value={gamma}
-                  onChange={(e) => setGamma(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Dot Spacing
-                </div>
-                <div style={sectionTitle}>
-                  <span>Cell</span>
-                  <span>{cellSize}</span>
-                </div>
-                <input
-                  type="range"
-                  min="4"
-                  max="28"
-                  step="1"
-                  value={cellSize}
-                  onChange={(e) => setCellSize(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-
-              <div style={sliderWrap}>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    fontFamily: ui.mono,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Background
-                </div>
-                <div style={sectionTitle}>
-                  <span>Tone</span>
-                  <span>{bgTone}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="80"
-                  step="1"
-                  value={bgTone}
-                  onChange={(e) => setBgTone(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#111111" }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...panelBox,
-              background: ui.panel,
-              padding: "10px",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ui.mono,
-                fontSize: "11px",
-                color: ui.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Save / Output
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                gap: "8px",
-              }}
-            >
-              {!isPreviewRecording ? (
-                <button
-                  onClick={startPreviewRecording}
-                  disabled={!ready}
-                  style={{
-                    ...btn(false),
-                    opacity: ready ? 1 : 0.45,
-                    cursor: ready ? "pointer" : "not-allowed",
-                  }}
-                >
-                  Webcam Rec Save
-                </button>
-              ) : (
-                <button onClick={stopPreviewRecording} style={btn(true)}>
-                  Stop Recording
-                </button>
-              )}
-
-              <button onClick={downloadFrame} style={btn(false)}>
-                Save Frame
-              </button>
-
-              <button
-                onClick={exportProcessedVideo}
-                disabled={isExporting || sourceMode !== "file"}
-                style={{
-                  ...btn(isExporting),
-                  opacity: isExporting || sourceMode !== "file" ? 0.5 : 1,
-                  cursor:
-                    isExporting || sourceMode !== "file"
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {isExporting
-                  ? `Export ${Math.round(exportProgress * 100)}%`
-                  : "Save Halftone Video"}
-              </button>
-
-              <button onClick={resetValues} style={btn(false)}>
-                Reset Default
-              </button>
-            </div>
-
-            {isExporting ? (
-              <div
-                style={{
-                  border: `2px solid ${ui.line}`,
-                  background: "#f4efe6",
-                  padding: "6px",
-                }}
-              >
-                <div
-                  style={{
-                    height: "16px",
-                    border: `2px solid ${ui.line}`,
-                    background: "#d5cdbf",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.round(exportProgress * 100)}%`,
-                      height: "100%",
-                      background: "#1b1a17",
-                      transition: "width 0.1s linear",
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <span>{ready ? "READY" : "WAIT"}</span>
+          <span>{String(colorMode).toUpperCase()}</span>
         </div>
       </div>
 
