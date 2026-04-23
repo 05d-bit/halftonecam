@@ -28,7 +28,6 @@ function drawShape(ctx, shape, x, y, size) {
     ctx.moveTo(x, y - r);
     ctx.lineTo(x + r, y);
     ctx.lineTo(x, y + r);
-    
     ctx.lineTo(x - r, y);
     ctx.closePath();
     ctx.fill();
@@ -197,23 +196,23 @@ export default function App() {
   }, [cameraFacingMode]);
 
   useEffect(() => {
-  if (!ready) return;
-  runPreview();
-}, [
-  ready,
-  dotScale,
-  cellSize,
-  brightness,
-  contrast,
-  gamma,
-  invert,
-  mirrorWebcam,
-  showGridStroke,
-  bgTone,
-  colorMode,
-  shape,
-]);
-  
+    if (!ready) return;
+    runPreview();
+  }, [
+    ready,
+    dotScale,
+    cellSize,
+    brightness,
+    contrast,
+    gamma,
+    invert,
+    mirrorWebcam,
+    showGridStroke,
+    bgTone,
+    colorMode,
+    shape,
+  ]);
+
   async function startWebcam() {
     try {
       setError("");
@@ -425,8 +424,6 @@ export default function App() {
     const step = Math.max(4, cellSize);
     const half = step / 2;
 
-    // step(cellSize) = dot spacing
-    // dotScale = actual dot size
     const monoBaseRadius = dotScale * 6.0;
     const rgbBaseRadius = dotScale * 3.8;
     const cmyBaseRadius = dotScale * 3.2;
@@ -639,414 +636,827 @@ export default function App() {
     setCameraFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   }
 
+  const ui = {
+    paper: "#ece7dc",
+    panel: "#d7d1c4",
+    panelDeep: "#c9c2b5",
+    ink: "#1b1a17",
+    muted: "#5c564d",
+    line: "#2f2a24",
+    accent: "#111111",
+    danger: "#8f2f2f",
+    success: "#1b4f2b",
+    shadow: "4px 4px 0 #2f2a24",
+    inset: "inset 1px 1px 0 #f8f4ec, inset -1px -1px 0 #a9a191",
+    mono: '"IBM Plex Mono", "SFMono-Regular", "Menlo", "Consolas", monospace',
+    sans: '"Chicago", "Geneva", "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+  };
+
   const btn = (active = false) => ({
-    borderRadius: "18px",
-    minHeight: "54px",
-    padding: "12px 14px",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: active ? "#f2f2f2" : "rgba(255,255,255,0.04)",
-    color: active ? "#111" : "#fff",
-    fontSize: "14px",
-    fontWeight: 600,
+    borderRadius: "0",
+    minHeight: "44px",
+    padding: "10px 12px",
+    border: `2px solid ${ui.line}`,
+    background: active ? ui.ink : ui.panel,
+    color: active ? "#f4efe6" : ui.ink,
+    fontSize: "13px",
+    fontWeight: 700,
+    letterSpacing: "0.02em",
     cursor: "pointer",
     width: "100%",
+    boxShadow: active ? "none" : `2px 2px 0 ${ui.line}`,
+    transition: "transform 0.08s ease, box-shadow 0.08s ease",
+    fontFamily: ui.mono,
+    textTransform: "uppercase",
   });
 
   const sliderWrap = {
-    borderRadius: "20px",
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.03)",
-    padding: "16px",
+    borderRadius: "0",
+    border: `2px solid ${ui.line}`,
+    background: "#f4efe6",
+    padding: "12px",
     display: "grid",
-    gap: "10px",
+    gap: "8px",
+    boxShadow: `2px 2px 0 ${ui.line}`,
   };
 
   const sectionTitle = {
-    fontSize: "13px",
-    color: "rgba(255,255,255,0.78)",
+    fontSize: "11px",
+    color: ui.muted,
     display: "flex",
     justifyContent: "space-between",
     gap: "10px",
+    fontFamily: ui.mono,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  };
+
+  const panelBox = {
+    borderRadius: "0",
+    border: `2px solid ${ui.line}`,
+    background: ui.panel,
+    boxShadow: `3px 3px 0 ${ui.line}`,
+  };
+
+  const labelChip = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "28px",
+    padding: "0 10px",
+    border: `2px solid ${ui.line}`,
+    background: "#f4efe6",
+    color: ui.ink,
+    fontSize: "11px",
+    fontWeight: 700,
+    fontFamily: ui.mono,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
   };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#000",
-        color: "#fff",
-        padding: isMobile ? "14px" : "18px",
-        fontFamily:
-          "Inter, Pretendard, Apple SD Gothic Neo, Noto Sans KR, sans-serif",
+        background:
+          "linear-gradient(180deg, #d7d1c4 0%, #e6e0d4 28%, #ece7dc 100%)",
+        color: ui.ink,
+        padding: isMobile ? "10px" : "14px",
+        fontFamily: ui.sans,
         boxSizing: "border-box",
       }}
     >
       <div
         style={{
-          maxWidth: "1600px",
+          maxWidth: "1680px",
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 460px",
-          gap: "18px",
+          gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 420px",
+          gap: "14px",
           alignItems: "start",
         }}
       >
         <div
           style={{
-            minWidth: 0,
-            borderRadius: "32px",
+            ...panelBox,
             overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "#050505",
-            position: "relative",
-            minHeight: isMobile ? "auto" : "calc(100vh - 36px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            background: "#bdb6a7",
+            minHeight: isMobile ? "auto" : "calc(100vh - 28px)",
           }}
         >
           <div
             style={{
-              width: "100%",
-              minHeight: isMobile ? "420px" : "calc(100vh - 36px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              padding: "10px 12px",
+              borderBottom: `2px solid ${ui.line}`,
+              background:
+                "repeating-linear-gradient(90deg, #cbc4b7 0, #cbc4b7 8px, #d6d0c4 8px, #d6d0c4 16px)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={labelChip}>HALFTONE CAM</span>
+              <span style={{ ...labelChip, background: ready ? "#dfe7d6" : "#efe0d4" }}>
+                {ready ? "READY" : "WAIT"}
+              </span>
+              <span style={labelChip}>{sourceMode === "webcam" ? "WEBCAM" : "FILE"}</span>
+            </div>
+
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              print utility preview
+            </div>
+          </div>
+
+          <div
+            style={{
+              position: "relative",
+              background:
+                "linear-gradient(180deg, #7d776d 0%, #8d8679 100%)",
+              minHeight: isMobile ? "380px" : "calc(100vh - 84px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "#050505",
-              position: "relative",
+              padding: isMobile ? "12px" : "18px",
+              boxSizing: "border-box",
             }}
           >
-            <canvas
-              ref={previewCanvasRef}
+            <div
               style={{
-                display: "block",
                 width: "100%",
-                height: "auto",
-                maxWidth: "100%",
-                background: "#050505",
+                border: `2px solid ${ui.line}`,
+                background: "#0f0f0f",
+                boxShadow: "inset 0 0 0 4px #c9c2b5, 4px 4px 0 #2f2a24",
+                position: "relative",
+                overflow: "hidden",
               }}
-            />
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: "10px",
+                  left: "10px",
+                  zIndex: 3,
+                  display: "flex",
+                  gap: "6px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    ...labelChip,
+                    background: "#f4efe6",
+                    minHeight: "24px",
+                    fontSize: "10px",
+                  }}
+                >
+                  {colorMode}
+                </span>
+                <span
+                  style={{
+                    ...labelChip,
+                    background: "#f4efe6",
+                    minHeight: "24px",
+                    fontSize: "10px",
+                  }}
+                >
+                  {shape}
+                </span>
+              </div>
 
-            <img
-              src="/logo.png"
-              alt="logo"
-              style={{
-                position: "absolute",
-                top: isMobile ? "14px" : "20px",
-                left: isMobile ? "14px" : "20px",
-                width: isMobile ? "42px" : "54px",
-                zIndex: 10,
-                objectFit: "contain",
-              }}
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
+              <canvas
+                ref={previewCanvasRef}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  maxWidth: "100%",
+                  background: "#050505",
+                }}
+              />
+
+              <img
+                src="/logo.png"
+                alt="logo"
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  bottom: "12px",
+                  width: isMobile ? "32px" : "42px",
+                  zIndex: 3,
+                  objectFit: "contain",
+                  opacity: 0.92,
+                  imageRendering: "pixelated",
+                  filter: "grayscale(1) contrast(1.1)",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
           </div>
         </div>
 
         <div
           style={{
-            borderRadius: "28px",
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "#060606",
-            padding: isMobile ? "14px" : "16px",
+            ...panelBox,
+            padding: "10px",
             display: "grid",
-            gap: "14px",
+            gap: "10px",
             position: isMobile ? "static" : "sticky",
-            top: "18px",
+            top: "14px",
+            background: ui.panelDeep,
           }}
         >
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "10px",
+              ...panelBox,
+              background: "#f4efe6",
+              padding: "10px 12px",
+              boxShadow: `inset 1px 1px 0 #fffaf2, inset -1px -1px 0 #b6ae9f`,
             }}
           >
-            <button onClick={() => setSourceMode("webcam")} style={btn(sourceMode === "webcam")}>
-              웹캠
-            </button>
-            <button onClick={() => setSourceMode("file")} style={btn(sourceMode === "file")}>
-              영상 파일
-            </button>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.02em" }}>
+                HALFTONE CAMERA
+              </div>
+              <div
+                style={{
+                  fontFamily: ui.mono,
+                  fontSize: "11px",
+                  color: ui.muted,
+                  textTransform: "uppercase",
+                }}
+              >
+                retro print control desk
+              </div>
+            </div>
           </div>
 
           <div
             style={{
-              borderRadius: "20px",
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.03)",
-              padding: "14px",
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
               display: "grid",
-              gap: "12px",
+              gap: "8px",
             }}
           >
-            <label
+            <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                flexWrap: "wrap",
-                fontSize: "14px",
-                color: "#fff",
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleUploadChange}
-                style={{ fontSize: "14px" }}
-              />
-              <span style={{ opacity: 0.86 }}>
-                {uploadedName || "선택된 파일 없음"}
-              </span>
-            </label>
+              Source
+            </div>
 
             <div
               style={{
-                fontSize: "13px",
-                color: "rgba(255,255,255,0.62)",
-                lineHeight: 1.45,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "8px",
               }}
             >
-              {sourceMode === "webcam"
-                ? ready
-                  ? "웹캠 프리뷰 활성화"
-                  : "웹캠을 준비 중입니다."
-                : uploadedName
-                ? "업로드한 영상 프리뷰 활성화"
-                : "아직 선택된 영상 파일이 없습니다."}
+              <button onClick={() => setSourceMode("webcam")} style={btn(sourceMode === "webcam")}>
+                Webcam
+              </button>
+              <button onClick={() => setSourceMode("file")} style={btn(sourceMode === "file")}>
+                Video File
+              </button>
             </div>
 
-            {error ? (
-              <div
+            <div
+              style={{
+                ...panelBox,
+                background: "#f4efe6",
+                padding: "10px",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <label
                 style={{
+                  display: "grid",
+                  gap: "8px",
                   fontSize: "13px",
-                  color: "#ff8d8d",
-                  lineHeight: 1.45,
+                  color: ui.ink,
                 }}
               >
-                {error}
+                <span
+                  style={{
+                    fontFamily: ui.mono,
+                    fontSize: "11px",
+                    color: ui.muted,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Upload Video
+                </span>
+
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleUploadChange}
+                  style={{
+                    width: "100%",
+                    fontSize: "12px",
+                    fontFamily: ui.mono,
+                    color: ui.ink,
+                  }}
+                />
+              </label>
+
+              <div
+                style={{
+                  border: `2px solid ${ui.line}`,
+                  background: "#ebe4d8",
+                  padding: "8px 10px",
+                  fontFamily: ui.mono,
+                  fontSize: "11px",
+                  color: ui.ink,
+                  minHeight: "36px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {uploadedName || "NO FILE SELECTED"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: ui.muted,
+                  lineHeight: 1.5,
+                  fontFamily: ui.mono,
+                }}
+              >
+                {sourceMode === "webcam"
+                  ? ready
+                    ? "WEBCAM PREVIEW ACTIVE"
+                    : "PREPARING WEBCAM..."
+                  : uploadedName
+                  ? "UPLOADED VIDEO PREVIEW ACTIVE"
+                  : "WAITING FOR VIDEO FILE"}
+              </div>
+
+              {error ? (
+                <div
+                  style={{
+                    border: `2px solid ${ui.danger}`,
+                    background: "#f1d8d4",
+                    padding: "8px 10px",
+                    fontSize: "12px",
+                    color: ui.danger,
+                    lineHeight: 1.45,
+                    fontFamily: ui.mono,
+                  }}
+                >
+                  {error}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Color Process
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: "8px",
+              }}
+            >
+              <button onClick={() => setColorMode("bw")} style={btn(colorMode === "bw")}>
+                B/W
+              </button>
+              <button onClick={() => setColorMode("rgb")} style={btn(colorMode === "rgb")}>
+                RGB
+              </button>
+              <button onClick={() => setColorMode("cmyk")} style={btn(colorMode === "cmyk")}>
+                CMYK
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Dot Shape
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                gap: "8px",
+              }}
+            >
+              {shapeOptions.map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => setShape(item.value)}
+                  style={{
+                    ...btn(shape === item.value),
+                    fontSize: "18px",
+                    minHeight: "48px",
+                    textTransform: "none",
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Utility Switches
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+                gap: "8px",
+              }}
+            >
+              <button onClick={() => setInvert((v) => !v)} style={btn(invert)}>
+                Invert {invert ? "On" : "Off"}
+              </button>
+              <button onClick={() => setMirrorWebcam((v) => !v)} style={btn(mirrorWebcam)}>
+                Mirror {mirrorWebcam ? "On" : "Off"}
+              </button>
+              <button onClick={toggleCamera} style={btn(false)}>
+                Camera Flip
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowGridStroke((v) => !v)}
+              style={btn(showGridStroke)}
+            >
+              Cell Line {showGridStroke ? "On" : "Off"}
+            </button>
+          </div>
+
+          <div
+            style={{
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Tone Controls
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: "10px",
+              }}
+            >
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Dot Size
+                </div>
+                <div style={sectionTitle}>
+                  <span>Scale</span>
+                  <span>{dotScale.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="10"
+                  step="0.01"
+                  value={dotScale}
+                  onChange={(e) => setDotScale(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Contrast
+                </div>
+                <div style={sectionTitle}>
+                  <span>Level</span>
+                  <span>{contrast.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="2.2"
+                  step="0.01"
+                  value={contrast}
+                  onChange={(e) => setContrast(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Brightness
+                </div>
+                <div style={sectionTitle}>
+                  <span>Level</span>
+                  <span>{brightness.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-0.5"
+                  max="0.5"
+                  step="0.01"
+                  value={brightness}
+                  onChange={(e) => setBrightness(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Gamma
+                </div>
+                <div style={sectionTitle}>
+                  <span>Level</span>
+                  <span>{gamma.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="2.4"
+                  step="0.01"
+                  value={gamma}
+                  onChange={(e) => setGamma(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Dot Spacing
+                </div>
+                <div style={sectionTitle}>
+                  <span>Cell</span>
+                  <span>{cellSize}</span>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="28"
+                  step="1"
+                  value={cellSize}
+                  onChange={(e) => setCellSize(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+
+              <div style={sliderWrap}>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    fontFamily: ui.mono,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Background
+                </div>
+                <div style={sectionTitle}>
+                  <span>Tone</span>
+                  <span>{bgTone}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="80"
+                  step="1"
+                  value={bgTone}
+                  onChange={(e) => setBgTone(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "#111111" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...panelBox,
+              background: ui.panel,
+              padding: "10px",
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: ui.mono,
+                fontSize: "11px",
+                color: ui.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Save / Output
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: "8px",
+              }}
+            >
+              {!isPreviewRecording ? (
+                <button
+                  onClick={startPreviewRecording}
+                  disabled={!ready}
+                  style={{
+                    ...btn(false),
+                    opacity: ready ? 1 : 0.45,
+                    cursor: ready ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Webcam Rec Save
+                </button>
+              ) : (
+                <button onClick={stopPreviewRecording} style={btn(true)}>
+                  Stop Recording
+                </button>
+              )}
+
+              <button onClick={downloadFrame} style={btn(false)}>
+                Save Frame
+              </button>
+
+              <button
+                onClick={exportProcessedVideo}
+                disabled={isExporting || sourceMode !== "file"}
+                style={{
+                  ...btn(isExporting),
+                  opacity: isExporting || sourceMode !== "file" ? 0.5 : 1,
+                  cursor:
+                    isExporting || sourceMode !== "file"
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {isExporting
+                  ? `Export ${Math.round(exportProgress * 100)}%`
+                  : "Save Halftone Video"}
+              </button>
+
+              <button onClick={resetValues} style={btn(false)}>
+                Reset Default
+              </button>
+            </div>
+
+            {isExporting ? (
+              <div
+                style={{
+                  border: `2px solid ${ui.line}`,
+                  background: "#f4efe6",
+                  padding: "6px",
+                }}
+              >
+                <div
+                  style={{
+                    height: "16px",
+                    border: `2px solid ${ui.line}`,
+                    background: "#d5cdbf",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.round(exportProgress * 100)}%`,
+                      height: "100%",
+                      background: "#1b1a17",
+                      transition: "width 0.1s linear",
+                    }}
+                  />
+                </div>
               </div>
             ) : null}
           </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "10px",
-            }}
-          >
-            <button onClick={() => setColorMode("bw")} style={btn(colorMode === "bw")}>
-              B/W
-            </button>
-            <button onClick={() => setColorMode("rgb")} style={btn(colorMode === "rgb")}>
-              RGB
-            </button>
-            <button onClick={() => setColorMode("cmyk")} style={btn(colorMode === "cmyk")}>
-              CMYK
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-              gap: "10px",
-            }}
-          >
-            {shapeOptions.map((item) => (
-              <button
-                key={item.value}
-                onClick={() => setShape(item.value)}
-                style={btn(shape === item.value)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "10px",
-            }}
-          >
-            <button onClick={() => setInvert((v) => !v)} style={btn(invert)}>
-              Invert {invert ? "On" : "Off"}
-            </button>
-            <button onClick={() => setMirrorWebcam((v) => !v)} style={btn(mirrorWebcam)}>
-              좌우반전 {mirrorWebcam ? "On" : "Off"}
-            </button>
-            <button onClick={toggleCamera} style={btn(false)}>
-              카메라 전환
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-              gap: "10px",
-            }}
-          >
-            <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Dot</div>
-              <div style={sectionTitle}>
-                <span>닷 크기</span>
-                <span>{dotScale.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                step="0.01"
-                value={dotScale}
-                onChange={(e) => setDotScale(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Contrast</div>
-              <div style={sectionTitle}>
-                <span>대비</span>
-                <span>{contrast.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.4"
-                max="2.2"
-                step="0.01"
-                value={contrast}
-                onChange={(e) => setContrast(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Brightness</div>
-              <div style={sectionTitle}>
-                <span>밝기</span>
-                <span>{brightness.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="-0.5"
-                max="0.5"
-                step="0.01"
-                value={brightness}
-                onChange={(e) => setBrightness(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={sliderWrap}>
-              <div style={{ fontSize: "18px", fontWeight: 600 }}>Gamma</div>
-              <div style={sectionTitle}>
-                <span>감마</span>
-                <span>{gamma.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.4"
-                max="2.4"
-                step="0.01"
-                value={gamma}
-                onChange={(e) => setGamma(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={sliderWrap}>
-            <div style={{ fontSize: "18px", fontWeight: 600 }}>Spacing</div>
-              <div style={sectionTitle}>
-                <span>간격</span>
-                <span>{cellSize}</span>
-              </div>
-              <input
-                type="range"
-                min="4"
-                max="28"
-                step="1"
-                value={cellSize}
-                onChange={(e) => setCellSize(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={sliderWrap}>
-             <div style={{ fontSize: "18px", fontWeight: 600 }}>Background Tone</div>
-              <div style={sectionTitle}>
-                <span>배경톤</span>
-                <span>{bgTone}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="80"
-                step="1"
-                value={bgTone}
-                onChange={(e) => setBgTone(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-              gap: "10px",
-            }}
-          >
-            {!isPreviewRecording ? (
-              <button
-                onClick={startPreviewRecording}
-                disabled={!ready}
-                style={{
-                  ...btn(false),
-                  opacity: ready ? 1 : 0.45,
-                  cursor: ready ? "pointer" : "not-allowed",
-                }}
-              >
-                웹캠 녹화 저장
-              </button>
-            ) : (
-              <button onClick={stopPreviewRecording} style={btn(true)}>
-                녹화 종료
-              </button>
-            )}
-
-            <button onClick={downloadFrame} style={btn(false)}>
-              프레임 저장
-            </button>
-
-            <button
-              onClick={exportProcessedVideo}
-              disabled={isExporting || sourceMode !== "file"}
-              style={{
-                ...btn(isExporting),
-                opacity: isExporting || sourceMode !== "file" ? 0.5 : 1,
-                cursor:
-                  isExporting || sourceMode !== "file"
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              {isExporting
-                ? `영상 저장 중 ${Math.round(exportProgress * 100)}%`
-                : "하프톤 영상 저장"}
-            </button>
-
-            <button onClick={resetValues} style={btn(false)}>
-              기본값 복원
-            </button>
-          </div>
-
-          <button
-            onClick={() => setShowGridStroke((v) => !v)}
-            style={btn(showGridStroke)}
-          >
-            셀 라인 {showGridStroke ? "ON" : "OFF"}
-          </button>
         </div>
       </div>
 
