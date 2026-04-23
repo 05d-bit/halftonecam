@@ -800,8 +800,7 @@ export default function App() {
     teal: "#008080",
   };
 
-  const fontStack =
-    '"MS Sans Serif", Tahoma, Geneva, Verdana, sans-serif';
+  const fontStack = '"MS Sans Serif", Tahoma, Geneva, Verdana, sans-serif';
 
   const windowStyle = {
     background: ui.face,
@@ -920,9 +919,19 @@ export default function App() {
         fontFamily: fontStack,
         boxSizing: "border-box",
         overflowX: "hidden",
+        position: "relative",
       }}
     >
       <style>{`
+        html, body, #root {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100%;
+          background: #008080;
+          overflow-x: hidden;
+        }
+
         .win95-range {
           width: 100%;
           appearance: none;
@@ -980,6 +989,25 @@ export default function App() {
         }
       `}</style>
 
+      <img
+        src="/logo.png"
+        alt="desktop logo"
+        style={{
+          position: "fixed",
+          right: isMobile ? "20px" : "48px",
+          bottom: isMobile ? "60px" : "54px",
+          width: isMobile ? "140px" : "240px",
+          height: "auto",
+          opacity: 0.95,
+          imageRendering: "pixelated",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+        }}
+      />
+
       <div
         style={{
           maxWidth: "1680px",
@@ -988,9 +1016,10 @@ export default function App() {
           gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 420px",
           gap: "12px",
           alignItems: "start",
+          position: "relative",
+          zIndex: 1,
         }}
       >
-        {/* LEFT WINDOW */}
         <div style={windowStyle}>
           <div
             style={{
@@ -1138,14 +1167,11 @@ export default function App() {
               }}
             >
               <span>{error ? error : ready ? "Preview Active" : "Initializing..."}</span>
-              <span>
-                {sourceMode === "webcam" ? "Camera" : uploadedName || "No file"}
-              </span>
+              <span>{sourceMode === "webcam" ? "Camera" : uploadedName || "No file"}</span>
             </div>
           </div>
         </div>
 
-        {/* RIGHT WINDOW */}
         <div style={windowStyle}>
           <div
             style={{
@@ -1203,7 +1229,6 @@ export default function App() {
               gap: "10px",
             }}
           >
-            {/* SOURCE */}
             <div style={groupBox}>
               <div style={sectionLabel}>Source</div>
 
@@ -1315,7 +1340,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLOR MODE */}
             <div style={groupBox}>
               <div style={sectionLabel}>Color Process</div>
               <div
@@ -1337,7 +1361,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SHAPE */}
             <div style={groupBox}>
               <div style={sectionLabel}>Dot Shape</div>
               <div
@@ -1363,7 +1386,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* TOGGLES */}
             <div style={groupBox}>
               <div style={sectionLabel}>Utility Switches</div>
 
@@ -1392,7 +1414,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* SLIDERS */}
             <div style={groupBox}>
               <div style={sectionLabel}>Tone Controls</div>
 
@@ -1501,7 +1522,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SAVE OUTPUT */}
             <div style={groupBox}>
               <div style={sectionLabel}>Save / Output</div>
 
@@ -1588,7 +1608,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* TASKBAR 느낌 */}
       <div
         style={{
           ...windowStyle,
@@ -1600,6 +1619,8 @@ export default function App() {
           justifyContent: "space-between",
           padding: "0 6px",
           boxSizing: "border-box",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
