@@ -1012,27 +1012,20 @@ export default function App() {
           display: none;
         }
       `}</style>
-
-      <img
-        src="/logo.png"
-        alt="desktop logo"
-        style={{
-          position: "fixed",
-          left: "50%",
-          transform: "translateX(-50%)",
-          bottom: isMobile ? "76px" : "72px",
-          width: isMobile ? "160px" : "290px",
-          maxWidth: "38vw",
-          height: "auto",
-          opacity: 0.9,
-          imageRendering: "pixelated",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
+      
+<div
+  style={{
+    position: "fixed",
+    inset: 0,
+    pointerEvents: "none",
+    zIndex: 0,
+    opacity: 0.16,
+    backgroundImage: 'url("/logo.png")',
+    backgroundRepeat: "repeat",
+    backgroundSize: isMobile ? "140px auto" : "220px auto",
+    backgroundPosition: "0 0",
+  }}
+/>
 
       <div
         style={{
