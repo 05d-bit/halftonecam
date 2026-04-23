@@ -866,6 +866,29 @@ export default function App() {
     whiteSpace: "nowrap",
   });
 
+  const actionBtn = (active = false, disabled = false) => ({
+    minHeight: isMobile ? "42px" : "44px",
+    width: "100%",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    padding: "6px 10px",
+    background: ui.face,
+    color: disabled ? ui.disabled : ui.text,
+    borderTop: `2px solid ${active ? ui.shadow : ui.light}`,
+    borderLeft: `2px solid ${active ? ui.shadow : ui.light}`,
+    borderRight: `2px solid ${active ? ui.light : ui.dark}`,
+    borderBottom: `2px solid ${active ? ui.light : ui.dark}`,
+    boxShadow: active ? `inset 1px 1px 0 ${ui.dark}` : "none",
+    fontFamily: fontStack,
+    fontSize: isMobile ? "11px" : "12px",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",
+  });
+
   const smallBadge = {
     display: "inline-flex",
     alignItems: "center",
@@ -916,6 +939,7 @@ export default function App() {
         minHeight: "100vh",
         background: ui.desktop,
         padding: isMobile ? "10px" : "14px",
+        paddingBottom: isMobile ? "68px" : "64px",
         fontFamily: fontStack,
         boxSizing: "border-box",
         overflowX: "hidden",
@@ -994,11 +1018,13 @@ export default function App() {
         alt="desktop logo"
         style={{
           position: "fixed",
-          right: isMobile ? "20px" : "48px",
-          bottom: isMobile ? "60px" : "54px",
-          width: isMobile ? "140px" : "240px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          bottom: isMobile ? "76px" : "72px",
+          width: isMobile ? "160px" : "290px",
+          maxWidth: "38vw",
           height: "auto",
-          opacity: 0.95,
+          opacity: 0.9,
           imageRendering: "pixelated",
           pointerEvents: "none",
           zIndex: 0,
@@ -1079,16 +1105,60 @@ export default function App() {
               gap: "10px",
             }}
           >
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <span style={smallBadge}>HALFTONE CAM</span>
-              <span style={smallBadge}>{ready ? "READY" : "WAIT"}</span>
-              <span style={smallBadge}>{sourceMode === "webcam" ? "WEBCAM" : "VIDEO FILE"}</span>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+                gap: "8px",
+              }}
+            >
+              {!isPreviewRecording ? (
+                <button
+                  onClick={startPreviewRecording}
+                  disabled={!ready}
+                  style={actionBtn(false, !ready)}
+                >
+                  <Win95Icon type="record" />
+                  <span>WEBCAM REC SAVE</span>
+                </button>
+              ) : (
+                <button
+                  onClick={stopPreviewRecording}
+                  style={actionBtn(true, false)}
+                >
+                  <Win95Icon type="record" />
+                  <span>STOP RECORDING</span>
+                </button>
+              )}
+
+              <button onClick={downloadFrame} style={actionBtn(false, false)}>
+                <Win95Icon type="camera" />
+                <span>SAVE FRAME</span>
+              </button>
+
+              <button
+                onClick={exportProcessedVideo}
+                disabled={isExporting || sourceMode !== "file"}
+                style={actionBtn(isExporting, isExporting || sourceMode !== "file")}
+              >
+                <Win95Icon type="disk" />
+                <span>
+                  {isExporting
+                    ? `SAVE VIDEO ${Math.round(exportProgress * 100)}%`
+                    : "SAVE HALFTONE VIDEO"}
+                </span>
+              </button>
+
+              <button onClick={resetValues} style={actionBtn(false, false)}>
+                <Win95Icon type="reset" />
+                <span>RESET DEFAULT</span>
+              </button>
             </div>
 
             <div
               style={{
                 ...insetStyle,
-                minHeight: isMobile ? "360px" : "calc(100vh - 180px)",
+                minHeight: isMobile ? "360px" : "calc(100vh - 210px)",
                 padding: isMobile ? "10px" : "16px",
                 display: "flex",
                 alignItems: "center",
@@ -1166,7 +1236,15 @@ export default function App() {
                 background: ui.face,
               }}
             >
-              <span>{error ? error : ready ? "Preview Active" : "Initializing..."}</span>
+              <span>
+                {error
+                  ? error
+                  : isExporting
+                  ? `Saving video... ${Math.round(exportProgress * 100)}%`
+                  : ready
+                  ? "Preview Active"
+                  : "Initializing..."}
+              </span>
               <span>{sourceMode === "webcam" ? "Camera" : uploadedName || "No file"}</span>
             </div>
           </div>
@@ -1522,57 +1600,9 @@ export default function App() {
               </div>
             </div>
 
-            <div style={groupBox}>
-              <div style={sectionLabel}>Save / Output</div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                  gap: "8px",
-                }}
-              >
-                {!isPreviewRecording ? (
-                  <button
-                    onClick={startPreviewRecording}
-                    disabled={!ready}
-                    style={btn(false, !ready)}
-                  >
-                    <Win95Icon type="record" />
-                    <span>WEBCAM REC SAVE</span>
-                  </button>
-                ) : (
-                  <button onClick={stopPreviewRecording} style={btn(true, false)}>
-                    <Win95Icon type="record" />
-                    <span>STOP RECORDING</span>
-                  </button>
-                )}
-
-                <button onClick={downloadFrame} style={btn(false, false)}>
-                  <Win95Icon type="camera" />
-                  <span>SAVE FRAME</span>
-                </button>
-
-                <button
-                  onClick={exportProcessedVideo}
-                  disabled={isExporting || sourceMode !== "file"}
-                  style={btn(isExporting, isExporting || sourceMode !== "file")}
-                >
-                  <Win95Icon type="disk" />
-                  <span>
-                    {isExporting
-                      ? `SAVE VIDEO ${Math.round(exportProgress * 100)}%`
-                      : "SAVE HALFTONE VIDEO"}
-                  </span>
-                </button>
-
-                <button onClick={resetValues} style={btn(false, false)}>
-                  <Win95Icon type="reset" />
-                  <span>RESET DEFAULT</span>
-                </button>
-              </div>
-
-              {isExporting ? (
+            {isExporting ? (
+              <div style={groupBox}>
+                <div style={sectionLabel}>Export Progress</div>
                 <div
                   style={{
                     ...insetStyle,
@@ -1602,8 +1632,8 @@ export default function App() {
                     />
                   </div>
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1611,7 +1641,10 @@ export default function App() {
       <div
         style={{
           ...windowStyle,
-          marginTop: "10px",
+          position: "fixed",
+          left: isMobile ? "10px" : "14px",
+          right: isMobile ? "10px" : "14px",
+          bottom: isMobile ? "10px" : "10px",
           background: ui.face,
           height: "38px",
           display: "flex",
@@ -1619,8 +1652,7 @@ export default function App() {
           justifyContent: "space-between",
           padding: "0 6px",
           boxSizing: "border-box",
-          position: "relative",
-          zIndex: 1,
+          zIndex: 2,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
