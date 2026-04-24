@@ -595,46 +595,37 @@ export default function App() {
   drawShape(ctx, shape, x + half, y + half, size);
 }
 
-        if (colorMode === "cmyk") {
-          const c = processTone(255 - r, gamma, contrast, brightness, invert);
-          const m = processTone(255 - g, gamma, contrast, brightness, invert);
-          const yv = processTone(255 - b, gamma, contrast, brightness, invert);
-          const kBase = Math.min(255 - r, 255 - g, 255 - b);
-          const k = processTone(kBase, gamma, contrast, brightness, invert);
-          const cmyMaxRadius = Math.min(cmyBaseRadius, step * 0.22);
-          const kMaxRadius = Math.min(kBaseRadius, step * 0.18);
+if (colorMode === "cmyk") {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const tone = processTone(lum, gamma, contrast, brightness, invert);
 
-          ctx.fillStyle = "rgb(0,255,255)";
-          drawShape(
-            ctx,
-            shape,
-            x + half - step * 0.16,
-            y + half - step * 0.12,
-            c * cmyMaxRadius
-          );
+  const maxRadius = Math.min(monoBaseRadius, step * 0.44);
+  const size = tone * maxRadius;
 
-          ctx.fillStyle = "rgb(255,0,255)";
-          drawShape(
-            ctx,
-            shape,
-            x + half + step * 0.16,
-            y + half - step * 0.12,
-            m * cmyMaxRadius
-          );
+  const inkMix = 0.72;
 
-          ctx.fillStyle = "rgb(255,255,0)";
-          drawShape(
-            ctx,
-            shape,
-            x + half,
-            y + half + step * 0.14,
-            yv * cmyMaxRadius
-          );
+  const c = 255 - r;
+  const m = 255 - g;
+  const yv = 255 - b;
 
-          ctx.fillStyle = "rgb(20,20,20)";
-          drawShape(ctx, shape, x + half, y + half, k * kMaxRadius);
-        }
+  const rr = Math.round(245 - c * inkMix * 0.32);
+  const gg = Math.round(245 - m * inkMix * 0.32);
+  const bb = Math.round(245 - yv * inkMix * 0.32);
 
+  ctx.fillStyle = `rgb(${clamp(rr, 0, 255)}, ${clamp(gg, 0, 255)}, ${clamp(bb, 0, 255)})`;
+  drawShape(ctx, shape, x + half, y + half, size);
+
+  if (tone > 0.45) {
+    ctx.fillStyle = "rgba(20,20,20,0.22)";
+    drawShape(
+      ctx,
+      shape,
+      x + half + step * 0.08,
+      y + half + step * 0.08,
+      size * 0.72
+    );
+  }
+}
         if (showGridStroke) {
           ctx.strokeStyle = "rgba(255,255,255,0.06)";
           ctx.strokeRect(x, y, step, step);
