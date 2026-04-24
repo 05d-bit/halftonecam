@@ -1022,7 +1022,7 @@ export default function App() {
     backgroundColor: "#008080",
     backgroundImage: 'url("/tile-logo.png")',
     backgroundRepeat: "repeat",
-    backgroundSize: isMobile ? "150px auto" : "230px auto",
+    backgroundSize: isMobile ? "90px auto" : "140px auto",
     backgroundPosition: "0 0",
     imageRendering: "pixelated",
   }}
