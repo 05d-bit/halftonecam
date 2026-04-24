@@ -1019,11 +1019,10 @@ export default function App() {
     inset: 0,
     pointerEvents: "none",
     zIndex: 0,
-    opacity: 0.7,
-    backgroundImage: 'url("/tile-logo.png")',
-    backgroundRepeat: "repeat",
+    opacity: 0.5,
+    background: '#008080 url("/tile-logo.png") repeat 0 0',
     backgroundSize: isMobile ? "150px auto" : "230px auto",
-    backgroundPosition: "0 0",
+    imageRendering: "pixelated",
   }}
 />
 
