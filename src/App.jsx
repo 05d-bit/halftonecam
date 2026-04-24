@@ -100,6 +100,30 @@ function processTone(v, gamma, contrast, brightness, invert) {
   return value;
 }
 
+function adjustSaturation(r, g, b, saturation) {
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+  return {
+    r: clamp(gray + (r - gray) * saturation, 0, 255),
+    g: clamp(gray + (g - gray) * saturation, 0, 255),
+    b: clamp(gray + (b - gray) * saturation, 0, 255),
+  };
+}
+
+function drawGrain(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 18;
+    data[i] = clamp(data[i] + noise, 0, 255);
+    data[i + 1] = clamp(data[i + 1] + noise, 0, 255);
+    data[i + 2] = clamp(data[i + 2] + noise, 0, 255);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
 function Win95Icon({ type, size = 16 }) {
   const wrapStyle = {
     width: size + 6,
@@ -241,6 +265,7 @@ export default function App() {
   const previewRecordedChunksRef = useRef([]);
 
   const exportVideoRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const [sourceMode, setSourceMode] = useState("webcam");
   const [videoUrl, setVideoUrl] = useState("");
@@ -260,6 +285,8 @@ export default function App() {
   const [bgTone, setBgTone] = useState(8);
   const [colorMode, setColorMode] = useState("bw");
   const [shape, setShape] = useState("circle");
+  const [saturation, setSaturation] = useState(1.15);
+  const [showGrain, setShowGrain] = useState(false);
 
   const [isPreviewRecording, setIsPreviewRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -338,6 +365,8 @@ export default function App() {
     invert,
     mirrorWebcam,
     showGridStroke,
+    saturation,
+    showGrain,
     bgTone,
     colorMode,
     shape,
@@ -462,7 +491,7 @@ export default function App() {
   }
 
   function resetValues() {
-    setDotScale(8.58);
+    setDotScale(8.85);
     setCellSize(4);
     setBrightness(0.18);
     setContrast(1.15);
@@ -473,6 +502,8 @@ export default function App() {
     setBgTone(8);
     setMirrorWebcam(true);
     setShowGridStroke(false);
+    setSaturation(1.15);
+    setShowGrain(false);
   }
 
   function runPreview() {
@@ -545,6 +576,7 @@ export default function App() {
     const imageData = octx.getImageData(0, 0, displayWidth, displayHeight);
     const data = imageData.data;
 
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, displayWidth, displayHeight);
 
     const bg = Math.round(clamp(bgTone, 0, 255));
@@ -565,9 +597,14 @@ export default function App() {
         const py = Math.min(displayHeight - 1, Math.floor(y + half));
         const idx = (py * displayWidth + px) * 4;
 
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
+        let r = data[idx];
+        let g = data[idx + 1];
+        let b = data[idx + 2];
+
+        const sat = adjustSaturation(r, g, b, saturation);
+        r = sat.r;
+        g = sat.g;
+        b = sat.b;
 
         if (colorMode === "bw") {
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -631,6 +668,10 @@ if (colorMode === "cmyk") {
           ctx.strokeRect(x, y, step, step);
         }
       }
+    }
+
+    if (showGrain) {
+      drawGrain(ctx, displayWidth, displayHeight);
     }
   }
 
@@ -1305,100 +1346,18 @@ if (colorMode === "cmyk") {
                   <span>WEBCAM</span>
                 </button>
 
-                <button onClick={() => setSourceMode("file")} style={btn(sourceMode === "file")}>
+                <button
+                  onClick={() => {
+                    setSourceMode("file");
+                    fileInputRef.current?.click();
+                  }}
+                  style={btn(sourceMode === "file")}
+                >
                   <Win95Icon type="folder" />
                   <span>VIDEO FILE</span>
                 </button>
               </div>
 
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label
-                  style={{
-                    display: "grid",
-                    gap: "8px",
-                    alignItems: "center",
-                  }}
-                >
-                  <span style={sectionLabel}>Upload Video</span>
-
-                  <label
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "120px 1fr",
-                      gap: "8px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span style={btn(false, false)}>
-                      <Win95Icon type="folder" />
-                      <span>BROWSE...</span>
-                    </span>
-
-                    <span
-                      style={{
-                        ...insetStyle,
-                        minHeight: "36px",
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "0 8px",
-                        background: "#fff",
-                        fontSize: "12px",
-                        color: ui.text,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {uploadedName || "선택된 파일 없음"}
-                    </span>
-
-                    <input
-                      className="win95-file-input"
-                      type="file"
-                      accept="video/*"
-                      onChange={handleUploadChange}
-                    />
-                  </label>
-                </label>
-
-                <div
-                  style={{
-                    ...insetStyle,
-                    background: "#fff",
-                    minHeight: "40px",
-                    padding: "8px",
-                    display: "flex",
-                    alignItems: "center",
-                    fontSize: "12px",
-                    color: ui.text,
-                  }}
-                >
-                  {sourceMode === "webcam"
-                    ? ready
-                      ? "웹캠 프리뷰 활성화"
-                      : "웹캠 준비 중..."
-                    : uploadedName
-                    ? "업로드한 영상 프리뷰 활성화"
-                    : "선택된 영상 파일 없음"}
-                </div>
-
-                {error ? (
-                  <div
-                    style={{
-                      ...insetStyle,
-                      background: "#fff4f4",
-                      minHeight: "40px",
-                      padding: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      fontSize: "12px",
-                      color: ui.error,
-                    }}
-                  >
-                    {error}
-                  </div>
-                ) : null}
-              </div>
             </div>
 
             <div style={groupBox}>
@@ -1472,6 +1431,10 @@ if (colorMode === "cmyk") {
 
               <button onClick={() => setShowGridStroke((v) => !v)} style={btn(showGridStroke)}>
                 CELL LINE {showGridStroke ? "ON" : "OFF"}
+              </button>
+
+              <button onClick={() => setShowGrain((v) => !v)} style={btn(showGrain)}>
+                GRAIN {showGrain ? "ON" : "OFF"}
               </button>
             </div>
 
@@ -1578,6 +1541,22 @@ if (colorMode === "cmyk") {
                     step="1"
                     value={bgTone}
                     onChange={(e) => setBgTone(Number(e.target.value))}
+                  />
+                </div>
+
+                <div style={sliderWrap}>
+                  <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+                    <span>SATURATION</span>
+                    <span style={valueLabel}>{saturation.toFixed(2)}</span>
+                  </div>
+                  <input
+                    className="win95-range"
+                    type="range"
+                    min="0"
+                    max="2.5"
+                    step="0.01"
+                    value={saturation}
+                    onChange={(e) => setSaturation(Number(e.target.value))}
                   />
                 </div>
               </div>
@@ -1697,6 +1676,14 @@ if (colorMode === "cmyk") {
           <span>{String(colorMode).toUpperCase()}</span>
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        className="win95-file-input"
+        type="file"
+        accept="video/*"
+        onChange={handleUploadChange}
+      />
 
       <video
         ref={sourceVideoRef}
