@@ -579,22 +579,21 @@ export default function App() {
           drawShape(ctx, shape, x + half, y + half, size);
         }
 
-        if (colorMode === "rgb") {
-          const rr = processTone(r, gamma, contrast, brightness, invert);
-          const gg = processTone(g, gamma, contrast, brightness, invert);
-          const bb = processTone(b, gamma, contrast, brightness, invert);
-          const maxRadius = Math.min(rgbBaseRadius, step * 0.26);
-          const offset = step * 0.18;
+      if (colorMode === "rgb") {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const tone = processTone(lum, gamma, contrast, brightness, invert);
 
-          ctx.fillStyle = "rgb(255,60,60)";
-          drawShape(ctx, shape, x + half - offset, y + half, rr * maxRadius);
+  const maxRadius = Math.min(monoBaseRadius, step * 0.46);
+  const size = tone * maxRadius;
 
-          ctx.fillStyle = "rgb(60,255,110)";
-          drawShape(ctx, shape, x + half + offset, y + half, gg * maxRadius);
+  const colorStrength = 0.72;
+  const rr = Math.round(255 * (1 - colorStrength) + r * colorStrength);
+  const gg = Math.round(255 * (1 - colorStrength) + g * colorStrength);
+  const bb = Math.round(255 * (1 - colorStrength) + b * colorStrength);
 
-          ctx.fillStyle = "rgb(80,160,255)";
-          drawShape(ctx, shape, x + half, y + half - offset, bb * maxRadius);
-        }
+  ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+  drawShape(ctx, shape, x + half, y + half, size);
+}
 
         if (colorMode === "cmyk") {
           const c = processTone(255 - r, gamma, contrast, brightness, invert);
