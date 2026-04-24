@@ -249,16 +249,16 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState("user");
 
-  const [dotScale, setDotScale] = useState(0.85);
-  const [cellSize, setCellSize] = useState(12);
-  const [brightness, setBrightness] = useState(0);
+  const [dotScale, setDotScale] = useState(8.85);
+  const [cellSize, setCellSize] = useState(4);
+  const [brightness, setBrightness] = useState(0.18);
   const [contrast, setContrast] = useState(1.15);
-  const [gamma, setGamma] = useState(1);
+  const [gamma, setGamma] = useState(1.15);
   const [invert, setInvert] = useState(false);
   const [mirrorWebcam, setMirrorWebcam] = useState(true);
   const [showGridStroke, setShowGridStroke] = useState(false);
   const [bgTone, setBgTone] = useState(8);
-  const [colorMode, setColorMode] = useState("rgb");
+  const [colorMode, setColorMode] = useState("bw");
   const [shape, setShape] = useState("circle");
 
   const [isPreviewRecording, setIsPreviewRecording] = useState(false);
@@ -462,13 +462,13 @@ export default function App() {
   }
 
   function resetValues() {
-    setDotScale(0.85);
-    setCellSize(12);
-    setBrightness(0);
+    setDotScale(8.58);
+    setCellSize(4);
+    setBrightness(0.18);
     setContrast(1.15);
-    setGamma(1);
+    setGamma(1.15);
     setInvert(false);
-    setColorMode("rgb");
+    setColorMode("bw");
     setShape("circle");
     setBgTone(8);
     setMirrorWebcam(true);
