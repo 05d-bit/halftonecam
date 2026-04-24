@@ -111,17 +111,26 @@ function adjustSaturation(r, g, b, saturation) {
 }
 
 function drawGrain(ctx, width, height) {
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
+  ctx.save();
 
-  for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 18;
-    data[i] = clamp(data[i] + noise, 0, 255);
-    data[i + 1] = clamp(data[i + 1] + noise, 0, 255);
-    data[i + 2] = clamp(data[i + 2] + noise, 0, 255);
+  const grainSize = 2;
+  const strength = 42;
+
+  for (let y = 0; y < height; y += grainSize) {
+    for (let x = 0; x < width; x += grainSize) {
+      const noise = Math.random();
+      const alpha = noise < 0.5 ? 0.08 : 0.13;
+
+      ctx.fillStyle =
+        noise < 0.5
+          ? `rgba(0, 0, 0, ${alpha})`
+          : `rgba(255, 255, 255, ${alpha})`;
+
+      ctx.fillRect(x, y, grainSize, grainSize);
+    }
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  ctx.restore();
 }
 
 function Win95Icon({ type, size = 16 }) {
