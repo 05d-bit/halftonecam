@@ -272,7 +272,7 @@ export default function App() {
 
   const previewRecorderRef = useRef(null);
   const previewRecordedChunksRef = useRef([]);
-
+  const recordingDrawRafRef = useRef(0);
   const exportVideoRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -694,15 +694,48 @@ if (colorMode === "cmyk") {
     }, "image/png");
   }
 
- function startPreviewRecording() {
-  const canvas = previewCanvasRef.current;
-  if (!canvas || !ready) return;
+function startPreviewRecording() {
+  const previewCanvas = previewCanvasRef.current;
+  if (!previewCanvas || !ready) return;
 
-  const stream = canvas.captureStream(30);
-  const mimeType = getMimeType();
+  const recordCanvas = document.createElement("canvas");
+  recordCanvas.width = previewCanvas.width;
+  recordCanvas.height = previewCanvas.height;
 
-  const recorder = mimeType
-    ? new MediaRecorder(stream, { mimeType })
+  const recordCtx = recordCanvas.getContext("2d");
+  if (!recordCtx) return;
+
+  recordCtx.imageSmoothingEnabled = false;
+
+  const drawToRecordCanvas = () => {
+    recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
+    recordCtx.drawImage(
+      previewCanvas,
+      0,
+      0,
+      previewCanvas.width,
+      previewCanvas.height,
+      0,
+      0,
+      recordCanvas.width,
+      recordCanvas.height
+    );
+
+    recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
+  };
+
+  drawToRecordCanvas();
+
+  const stream = recordCanvas.captureStream(30);
+
+  const mp4Type = MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
+    ? "video/mp4;codecs=h264"
+    : MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : "";
+
+  const recorder = mp4Type
+    ? new MediaRecorder(stream, { mimeType: mp4Type })
     : new MediaRecorder(stream);
 
   previewRecordedChunksRef.current = [];
@@ -715,14 +748,14 @@ if (colorMode === "cmyk") {
   };
 
   recorder.onstop = () => {
-    const finalType = mimeType || "video/webm";
-    const ext = getVideoExtension(finalType);
+    cancelAnimationFrame(recordingDrawRafRef.current);
 
+    const finalType = mp4Type || "video/mp4";
     const blob = new Blob(previewRecordedChunksRef.current, {
       type: finalType,
     });
 
-    downloadBlob(blob, `halftone-webcam-${Date.now()}.${ext}`);
+    downloadBlob(blob, `halftone-webcam-${Date.now()}.mp4`);
     previewRecordedChunksRef.current = [];
   };
 
@@ -731,12 +764,14 @@ if (colorMode === "cmyk") {
 }
 
   function stopPreviewRecording() {
-    if (previewRecorderRef.current && previewRecorderRef.current.state !== "inactive") {
-      previewRecorderRef.current.stop();
-    }
-    setIsPreviewRecording(false);
+  cancelAnimationFrame(recordingDrawRafRef.current);
+
+  if (previewRecorderRef.current && previewRecorderRef.current.state !== "inactive") {
+    previewRecorderRef.current.stop();
   }
 
+  setIsPreviewRecording(false);
+}
   async function exportProcessedVideo() {
     if (sourceMode !== "file" || !videoUrl || isExporting) return;
 
