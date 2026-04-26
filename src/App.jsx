@@ -113,29 +113,34 @@ function adjustSaturation(r, g, b, saturation) {
 
 
 function applyExportInputBoost(r, g, b) {
-  const exportSaturation = 2.4;
-  const exportContrast = 1.7;
-  const exportGamma = 0.72;
-  const exportBrightness = 0;
+  const baseSaturation = 1.42;
+  const contrast = 1.28;
+  const gamma = 0.88;
+  const blackLevel = -6;
 
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = (max - min) / 255;
+
+  const adaptiveSaturation = 1 + (baseSaturation - 1) * (1 - chroma * 0.45);
   const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
-  r = gray + (r - gray) * exportSaturation;
-  g = gray + (g - gray) * exportSaturation;
-  b = gray + (b - gray) * exportSaturation;
+  let rr = gray + (r - gray) * adaptiveSaturation;
+  let gg = gray + (g - gray) * adaptiveSaturation;
+  let bb = gray + (b - gray) * adaptiveSaturation;
 
-  r = (r - 128) * exportContrast + 128 + exportBrightness;
-  g = (g - 128) * exportContrast + 128 + exportBrightness;
-  b = (b - 128) * exportContrast + 128 + exportBrightness;
+  rr = (rr - 128) * contrast + 128 + blackLevel;
+  gg = (gg - 128) * contrast + 128 + blackLevel;
+  bb = (bb - 128) * contrast + 128 + blackLevel;
 
-  r = 255 * Math.pow(clamp(r, 0, 255) / 255, exportGamma);
-  g = 255 * Math.pow(clamp(g, 0, 255) / 255, exportGamma);
-  b = 255 * Math.pow(clamp(b, 0, 255) / 255, exportGamma);
+  rr = 255 * Math.pow(clamp(rr, 0, 255) / 255, gamma);
+  gg = 255 * Math.pow(clamp(gg, 0, 255) / 255, gamma);
+  bb = 255 * Math.pow(clamp(bb, 0, 255) / 255, gamma);
 
   return {
-    r: clamp(r, 0, 255),
-    g: clamp(g, 0, 255),
-    b: clamp(b, 0, 255),
+    r: clamp(rr, 0, 255),
+    g: clamp(gg, 0, 255),
+    b: clamp(bb, 0, 255),
   };
 }
 
@@ -679,15 +684,23 @@ export default function App() {
         g = sat.g;
         b = sat.b;
 
+        const toneR = r;
+        const toneG = g;
+        const toneB = b;
+
+        let drawR = r;
+        let drawG = g;
+        let drawB = b;
+
         if (exportMode) {
-          const boosted = applyExportInputBoost(r, g, b);
-          r = boosted.r;
-          g = boosted.g;
-          b = boosted.b;
+          const boosted = applyExportInputBoost(drawR, drawG, drawB);
+          drawR = boosted.r;
+          drawG = boosted.g;
+          drawB = boosted.b;
         }
 
         if (colorMode === "bw") {
-          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          const lum = 0.299 * toneR + 0.587 * toneG + 0.114 * toneB;
           const tone = processTone(lum, gamma, contrast, brightness, invert);
           const maxRadius = step * 0.48 * (dotScale / 10);
           const size = tone * maxRadius;
@@ -696,53 +709,55 @@ export default function App() {
           drawShape(ctx, shape, x + half, y + half, size);
         }
 
-      if (colorMode === "rgb") {
-  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  const tone = processTone(lum, gamma, contrast, brightness, invert);
+        if (colorMode === "rgb") {
+          const lum = 0.299 * toneR + 0.587 * toneG + 0.114 * toneB;
+          const tone = processTone(lum, gamma, contrast, brightness, invert);
 
- const maxRadius = step * 0.46 * (dotScale / 10);
-const size = tone * maxRadius;
+          const maxRadius = step * 0.46 * (dotScale / 10);
+          const size = tone * maxRadius;
 
-  const colorStrength = 0.72;
-  const rr = Math.round(255 * (1 - colorStrength) + r * colorStrength);
-  const gg = Math.round(255 * (1 - colorStrength) + g * colorStrength);
-  const bb = Math.round(255 * (1 - colorStrength) + b * colorStrength);
+          const colorStrength = exportMode ? 0.82 : 0.72;
+          const paperTone = exportMode ? 248 : 255;
 
-  ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-  drawShape(ctx, shape, x + half, y + half, size);
-}
+          const rr = Math.round(paperTone * (1 - colorStrength) + drawR * colorStrength);
+          const gg = Math.round(paperTone * (1 - colorStrength) + drawG * colorStrength);
+          const bb = Math.round(paperTone * (1 - colorStrength) + drawB * colorStrength);
 
-if (colorMode === "cmyk") {
-  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  const tone = processTone(lum, gamma, contrast, brightness, invert);
+          ctx.fillStyle = `rgb(${clamp(rr, 0, 255)},${clamp(gg, 0, 255)},${clamp(bb, 0, 255)})`;
+          drawShape(ctx, shape, x + half, y + half, size);
+        }
 
- const maxRadius = step * 0.44 * (dotScale / 10);
- const size = tone * maxRadius;
+        if (colorMode === "cmyk") {
+          const lum = 0.299 * toneR + 0.587 * toneG + 0.114 * toneB;
+          const tone = processTone(lum, gamma, contrast, brightness, invert);
 
-  const inkMix = 0.72;
+          const maxRadius = step * 0.44 * (dotScale / 10);
+          const size = tone * maxRadius;
 
-  const c = 255 - r;
-  const m = 255 - g;
-  const yv = 255 - b;
+          const inkMix = exportMode ? 0.84 : 0.72;
 
-  const rr = Math.round(245 - c * inkMix * 0.32);
-  const gg = Math.round(245 - m * inkMix * 0.32);
-  const bb = Math.round(245 - yv * inkMix * 0.32);
+          const c = 255 - drawR;
+          const m = 255 - drawG;
+          const yv = 255 - drawB;
 
-  ctx.fillStyle = `rgb(${clamp(rr, 0, 255)}, ${clamp(gg, 0, 255)}, ${clamp(bb, 0, 255)})`;
-  drawShape(ctx, shape, x + half, y + half, size);
+          const rr = Math.round(245 - c * inkMix * 0.32);
+          const gg = Math.round(245 - m * inkMix * 0.32);
+          const bb = Math.round(245 - yv * inkMix * 0.32);
 
-  if (tone > 0.45) {
-    ctx.fillStyle = "rgba(20,20,20,0.22)";
-    drawShape(
-      ctx,
-      shape,
-      x + half + step * 0.08,
-      y + half + step * 0.08,
-      size * 0.72
-    );
-  }
-}
+          ctx.fillStyle = `rgb(${clamp(rr, 0, 255)}, ${clamp(gg, 0, 255)}, ${clamp(bb, 0, 255)})`;
+          drawShape(ctx, shape, x + half, y + half, size);
+
+          if (tone > 0.45) {
+            ctx.fillStyle = "rgba(20,20,20,0.24)";
+            drawShape(
+              ctx,
+              shape,
+              x + half + step * 0.08,
+              y + half + step * 0.08,
+              size * 0.72
+            );
+          }
+        }
         if (showGridStroke) {
           ctx.strokeStyle = "rgba(255,255,255,0.06)";
           ctx.strokeRect(x, y, step, step);
