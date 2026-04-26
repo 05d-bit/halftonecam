@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -272,6 +274,8 @@ export default function App() {
 
   const previewRecorderRef = useRef(null);
   const previewRecordedChunksRef = useRef([]);
+  const ffmpegRef = useRef(new FFmpeg());
+  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const recordingDrawRafRef = useRef(0);
   const exportVideoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -732,20 +736,18 @@ const drawToRecordCanvas = () => {
 
   const stream = recordCanvas.captureStream(30);
 
-  const mp4Type = MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
-    ? "video/mp4;codecs=h264"
-    : MediaRecorder.isTypeSupported("video/mp4")
-    ? "video/mp4"
-    : "";
+const stream = recordCanvas.captureStream(30);
 
- const recorder = mp4Type
-  ? new MediaRecorder(stream, {
-      mimeType: mp4Type,
-      videoBitsPerSecond: 40_000_000,
-    })
-  : new MediaRecorder(stream, {
-      videoBitsPerSecond: 40_000_000,
-    });
+const webmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  ? "video/webm;codecs=vp9"
+  : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+  ? "video/webm;codecs=vp8"
+  : "video/webm";
+
+const recorder = new MediaRecorder(stream, {
+  mimeType: webmType,
+  videoBitsPerSecond: 40_000_000,
+});
   
   previewRecordedChunksRef.current = [];
   previewRecorderRef.current = recorder;
@@ -756,18 +758,19 @@ const drawToRecordCanvas = () => {
     }
   };
 
-  recorder.onstop = () => {
-    cancelAnimationFrame(recordingDrawRafRef.current);
+recorder.onstop = async () => {
+  cancelAnimationFrame(recordingDrawRafRef.current);
 
-    const finalType = mp4Type || "video/mp4";
-    const blob = new Blob(previewRecordedChunksRef.current, {
-      type: finalType,
-    });
+  const webmBlob = new Blob(previewRecordedChunksRef.current, {
+    type: "video/webm",
+  });
 
-    downloadBlob(blob, `halftone-webcam-${Date.now()}.mp4`);
-    previewRecordedChunksRef.current = [];
-  };
+  const mp4Blob = await convertToMp4(webmBlob);
 
+  downloadBlob(mp4Blob, `halftone-webcam-${Date.now()}.mp4`);
+
+  previewRecordedChunksRef.current = [];
+};
   recorder.start(100);
   setIsPreviewRecording(true);
 }
@@ -867,6 +870,43 @@ const drawToRecordCanvas = () => {
     }
   }
 
+  async function loadFFmpeg() {
+  if (ffmpegLoaded) return;
+
+  const ffmpeg = ffmpegRef.current;
+
+  await ffmpeg.load({
+    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
+    wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.wasm",
+  });
+
+  setFfmpegLoaded(true);
+}
+
+async function convertToMp4(webmBlob) {
+  const ffmpeg = ffmpegRef.current;
+
+  await loadFFmpeg();
+
+  const inputName = "input.webm";
+  const outputName = "output.mp4";
+
+  await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+
+  await ffmpeg.exec([
+    "-i", inputName,
+    "-c:v", "libx264",
+    "-preset", "ultrafast",
+    "-crf", "18",
+    "-pix_fmt", "yuv420p",
+    outputName,
+  ]);
+
+  const data = await ffmpeg.readFile(outputName);
+
+  return new Blob([data.buffer], { type: "video/mp4" });
+}
+  
   function toggleCamera() {
     setCameraFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   }
