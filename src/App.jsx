@@ -702,6 +702,8 @@ function startPreviewRecording() {
   const previewCanvas = previewCanvasRef.current;
   if (!previewCanvas || !ready) return;
 
+  setError("");
+
   const recordCanvas = document.createElement("canvas");
   recordCanvas.width = previewCanvas.width;
   recordCanvas.height = previewCanvas.height;
@@ -765,8 +767,9 @@ function startPreviewRecording() {
 
       const mp4Blob = await convertToMp4(webmBlob);
       downloadBlob(mp4Blob, `halftone-webcam-${Date.now()}.mp4`);
-    } catch {
-      setError("MP4 변환 중 문제가 발생했습니다. ffmpeg 설정 또는 브라우저 환경을 확인해 주세요.");
+    } catch (err) {
+      console.error("MP4 CONVERT ERROR:", err);
+      setError(`MP4 변환 실패: ${err?.message || String(err)}`);
     } finally {
       previewRecordedChunksRef.current = [];
       setIsPreviewRecording(false);
@@ -875,21 +878,26 @@ function startPreviewRecording() {
   async function loadFFmpeg() {
     if (ffmpegLoaded) return;
 
-    const ffmpeg = ffmpegRef.current;
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
+    try {
+      const ffmpeg = ffmpegRef.current;
+      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
 
-    await ffmpeg.load({
-      coreURL: await toBlobURL(
-        `${baseURL}/ffmpeg-core.js`,
-        "text/javascript"
-      ),
-      wasmURL: await toBlobURL(
-        `${baseURL}/ffmpeg-core.wasm`,
-        "application/wasm"
-      ),
-    });
+      await ffmpeg.load({
+        coreURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.js`,
+          "text/javascript"
+        ),
+        wasmURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.wasm`,
+          "application/wasm"
+        ),
+      });
 
-    setFfmpegLoaded(true);
+      setFfmpegLoaded(true);
+    } catch (err) {
+      console.error("FFMPEG LOAD ERROR:", err);
+      throw err;
+    }
   }
 
 async function convertToMp4(webmBlob) {
