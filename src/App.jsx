@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
+import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
 
+const ffmpeg = createFFmpeg({
+  log: true,
+  corePath: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
+});
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
