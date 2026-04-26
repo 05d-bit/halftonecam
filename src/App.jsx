@@ -618,7 +618,7 @@ export default function App() {
         if (colorMode === "bw") {
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
           const tone = processTone(lum, gamma, contrast, brightness, invert);
-          const maxRadius = Math.min(monoBaseRadius, step * 0.48);
+          const maxRadius = step * 0.48 * (dotScale / 10);
           const size = tone * maxRadius;
 
           ctx.fillStyle = "#ffffff";
@@ -629,8 +629,8 @@ export default function App() {
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
   const tone = processTone(lum, gamma, contrast, brightness, invert);
 
-  const maxRadius = Math.min(monoBaseRadius, step * 0.46);
-  const size = tone * maxRadius;
+ const maxRadius = step * 0.46 * (dotScale / 10);
+const size = tone * maxRadius;
 
   const colorStrength = 0.72;
   const rr = Math.round(255 * (1 - colorStrength) + r * colorStrength);
@@ -645,8 +645,8 @@ if (colorMode === "cmyk") {
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
   const tone = processTone(lum, gamma, contrast, brightness, invert);
 
-  const maxRadius = Math.min(monoBaseRadius, step * 0.44);
-  const size = tone * maxRadius;
+ const maxRadius = step * 0.44 * (dotScale / 10);
+ const size = tone * maxRadius;
 
   const inkMix = 0.72;
 
