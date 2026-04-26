@@ -734,10 +734,15 @@ function startPreviewRecording() {
     ? "video/mp4"
     : "";
 
-  const recorder = mp4Type
-    ? new MediaRecorder(stream, { mimeType: mp4Type })
-    : new MediaRecorder(stream);
-
+ const recorder = mp4Type
+  ? new MediaRecorder(stream, {
+      mimeType: mp4Type,
+      videoBitsPerSecond: 40_000_000,
+    })
+  : new MediaRecorder(stream, {
+      videoBitsPerSecond: 40_000_000,
+    });
+  
   previewRecordedChunksRef.current = [];
   previewRecorderRef.current = recorder;
 
