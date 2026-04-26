@@ -712,41 +712,40 @@ function startPreviewRecording() {
   recordCtx.imageSmoothingEnabled = false;
 
   const drawToRecordCanvas = () => {
-  recordCtx.globalCompositeOperation = "copy";
-  recordCtx.imageSmoothingEnabled = false;
+    recordCtx.globalCompositeOperation = "copy";
+    recordCtx.imageSmoothingEnabled = false;
 
-  recordCtx.drawImage(
-    previewCanvas,
-    0,
-    0,
-    previewCanvas.width,
-    previewCanvas.height,
-    0,
-    0,
-    recordCanvas.width,
-    recordCanvas.height
-  );
+    recordCtx.drawImage(
+      previewCanvas,
+      0,
+      0,
+      previewCanvas.width,
+      previewCanvas.height,
+      0,
+      0,
+      recordCanvas.width,
+      recordCanvas.height
+    );
 
-  recordCtx.globalCompositeOperation = "source-over";
-
-  recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
-};
+    recordCtx.globalCompositeOperation = "source-over";
+    recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
+  };
 
   drawToRecordCanvas();
 
   const stream = recordCanvas.captureStream(30);
 
   const webmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-  ? "video/webm;codecs=vp9"
-  : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-  ? "video/webm;codecs=vp8"
-  : "video/webm";
+    ? "video/webm;codecs=vp9"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+    ? "video/webm;codecs=vp8"
+    : "video/webm";
 
   const recorder = new MediaRecorder(stream, {
-  mimeType: webmType,
-  videoBitsPerSecond: 40_000_000,
-});
-  
+    mimeType: webmType,
+    videoBitsPerSecond: 40_000_000,
+  });
+
   previewRecordedChunksRef.current = [];
   previewRecorderRef.current = recorder;
 
@@ -757,18 +756,23 @@ function startPreviewRecording() {
   };
 
   recorder.onstop = async () => {
-  cancelAnimationFrame(recordingDrawRafRef.current);
+    cancelAnimationFrame(recordingDrawRafRef.current);
 
-  const webmBlob = new Blob(previewRecordedChunksRef.current, {
-    type: "video/webm",
-  });
+    try {
+      const webmBlob = new Blob(previewRecordedChunksRef.current, {
+        type: "video/webm",
+      });
 
-  const mp4Blob = await convertToMp4(webmBlob);
+      const mp4Blob = await convertToMp4(webmBlob);
+      downloadBlob(mp4Blob, `halftone-webcam-${Date.now()}.mp4`);
+    } catch {
+      setError("MP4 변환 중 문제가 발생했습니다. ffmpeg 설정 또는 브라우저 환경을 확인해 주세요.");
+    } finally {
+      previewRecordedChunksRef.current = [];
+      setIsPreviewRecording(false);
+    }
+  };
 
-  downloadBlob(mp4Blob, `halftone-webcam-${Date.now()}.mp4`);
-
-  previewRecordedChunksRef.current = [];
-};
   recorder.start(100);
   setIsPreviewRecording(true);
 }
