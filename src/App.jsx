@@ -110,6 +110,42 @@ function adjustSaturation(r, g, b, saturation) {
   };
 }
 
+
+function applyExportColorCompensation(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  const exportSaturation = 1.38;
+  const exportContrast = 1.18;
+  const exportGamma = 0.92;
+
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i];
+    let g = data[i + 1];
+    let b = data[i + 2];
+
+    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    r = gray + (r - gray) * exportSaturation;
+    g = gray + (g - gray) * exportSaturation;
+    b = gray + (b - gray) * exportSaturation;
+
+    r = (r - 128) * exportContrast + 128;
+    g = (g - 128) * exportContrast + 128;
+    b = (b - 128) * exportContrast + 128;
+
+    r = 255 * Math.pow(clamp(r, 0, 255) / 255, exportGamma);
+    g = 255 * Math.pow(clamp(g, 0, 255) / 255, exportGamma);
+    b = 255 * Math.pow(clamp(b, 0, 255) / 255, exportGamma);
+
+    data[i] = clamp(r, 0, 255);
+    data[i + 1] = clamp(g, 0, 255);
+    data[i + 2] = clamp(b, 0, 255);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
 function drawGrain(ctx, width, height) {
   ctx.save();
 
@@ -704,7 +740,10 @@ function startPreviewRecording() {
   recordCanvas.width = previewCanvas.width;
   recordCanvas.height = previewCanvas.height;
 
-  const recordCtx = recordCanvas.getContext("2d");
+  const recordCtx = recordCanvas.getContext("2d", {
+    alpha: false,
+    willReadFrequently: true,
+  });
   if (!recordCtx) return;
 
   recordCtx.imageSmoothingEnabled = false;
@@ -726,6 +765,8 @@ function startPreviewRecording() {
     );
 
     recordCtx.globalCompositeOperation = "source-over";
+    applyExportColorCompensation(recordCtx, recordCanvas.width, recordCanvas.height);
+
     recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
   };
 
@@ -733,14 +774,25 @@ function startPreviewRecording() {
 
   const stream = recordCanvas.captureStream(30);
 
-  const webmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  const mp4Type = MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
+    ? "video/mp4;codecs=h264"
+    : MediaRecorder.isTypeSupported("video/mp4;codecs=avc1.42E01E")
+    ? "video/mp4;codecs=avc1.42E01E"
+    : MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : "";
+
+  const fallbackWebmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
     ? "video/webm;codecs=vp8"
     : "video/webm";
 
+  const finalMimeType = mp4Type || fallbackWebmType;
+  const finalExtension = mp4Type ? "mp4" : "webm";
+
   const recorder = new MediaRecorder(stream, {
-    mimeType: webmType,
+    mimeType: finalMimeType,
     videoBitsPerSecond: 40_000_000,
   });
 
@@ -756,11 +808,15 @@ function startPreviewRecording() {
   recorder.onstop = () => {
     cancelAnimationFrame(recordingDrawRafRef.current);
 
-    const webmBlob = new Blob(previewRecordedChunksRef.current, {
-      type: webmType,
+    const blob = new Blob(previewRecordedChunksRef.current, {
+      type: finalMimeType,
     });
 
-    downloadBlob(webmBlob, `halftone-webcam-${Date.now()}.webm`);
+    downloadBlob(blob, `halftone-webcam-${Date.now()}.${finalExtension}`);
+
+    if (!mp4Type) {
+      setError("이 브라우저는 MP4 녹화를 지원하지 않아 WebM으로 저장했습니다.");
+    }
 
     previewRecordedChunksRef.current = [];
     setIsPreviewRecording(false);
@@ -834,6 +890,13 @@ function startPreviewRecording() {
           }
 
           renderHalftone(exportVideo, exportCanvas, { mirror: false });
+
+          const exportCtx = exportCanvas.getContext("2d", {
+            willReadFrequently: true,
+          });
+          if (exportCtx) {
+            applyExportColorCompensation(exportCtx, exportCanvas.width, exportCanvas.height);
+          }
 
           const duration = exportVideo.duration || 1;
           setExportProgress(clamp(exportVideo.currentTime / duration, 0, 1));
@@ -1197,7 +1260,7 @@ function startPreviewRecording() {
                   style={actionBtn(false, !ready)}
                 >
                   <Win95Icon type="record" />
-                  <span>WEBCAM WEBM SAVE</span>
+                  <span>WEBCAM MP4 SAVE</span>
                 </button>
               ) : (
                 <button
