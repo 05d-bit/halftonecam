@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -274,8 +272,6 @@ export default function App() {
 
   const previewRecorderRef = useRef(null);
   const previewRecordedChunksRef = useRef([]);
-  const ffmpegRef = useRef(new FFmpeg());
-  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const recordingDrawRafRef = useRef(0);
   const exportVideoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -757,23 +753,17 @@ function startPreviewRecording() {
     }
   };
 
-  recorder.onstop = async () => {
+  recorder.onstop = () => {
     cancelAnimationFrame(recordingDrawRafRef.current);
 
-    try {
-      const webmBlob = new Blob(previewRecordedChunksRef.current, {
-        type: "video/webm",
-      });
+    const webmBlob = new Blob(previewRecordedChunksRef.current, {
+      type: webmType,
+    });
 
-      const mp4Blob = await convertToMp4(webmBlob);
-      downloadBlob(mp4Blob, `halftone-webcam-${Date.now()}.mp4`);
-    } catch (err) {
-      console.error("MP4 CONVERT ERROR:", err);
-      setError(`MP4 변환 실패: ${err?.message || String(err)}`);
-    } finally {
-      previewRecordedChunksRef.current = [];
-      setIsPreviewRecording(false);
-    }
+    downloadBlob(webmBlob, `halftone-webcam-${Date.now()}.webm`);
+
+    previewRecordedChunksRef.current = [];
+    setIsPreviewRecording(false);
   };
 
   recorder.start(100);
@@ -875,60 +865,6 @@ function startPreviewRecording() {
     }
   }
 
-  async function loadFFmpeg() {
-    if (ffmpegLoaded) return;
-
-    try {
-      const ffmpeg = ffmpegRef.current;
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-
-      await ffmpeg.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          "text/javascript"
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          "application/wasm"
-        ),
-      });
-
-      setFfmpegLoaded(true);
-    } catch (err) {
-      console.error("FFMPEG LOAD ERROR:", err);
-      throw err;
-    }
-  }
-
-async function convertToMp4(webmBlob) {
-    const ffmpeg = ffmpegRef.current;
-
-    await loadFFmpeg();
-
-    const inputName = "input.webm";
-    const outputName = "output.mp4";
-
-    await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
-
-    await ffmpeg.exec([
-      "-i",
-      inputName,
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "12",
-      "-pix_fmt",
-      "yuv420p",
-      outputName,
-    ]);
-
-    const data = await ffmpeg.readFile(outputName);
-
-    return new Blob([data.buffer], { type: "video/mp4" });
-  }
-  
   function toggleCamera() {
     setCameraFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   }
@@ -1261,7 +1197,7 @@ async function convertToMp4(webmBlob) {
                   style={actionBtn(false, !ready)}
                 >
                   <Win95Icon type="record" />
-                  <span>WEBCAM REC SAVE</span>
+                  <span>WEBCAM WEBM SAVE</span>
                 </button>
               ) : (
                 <button
