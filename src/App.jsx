@@ -112,30 +112,52 @@ function adjustSaturation(r, g, b, saturation) {
 
 
 
-function applyExportInputBoost(r, g, b) {
-  const exportSaturation = 2.25;
-  const exportContrast = 1.55;
-  const exportGamma = 0.78;
-  const exportBrightness = 10;
+function applyExportInputBoost(r, g, b, preset = "match") {
+  const presets = {
+    soft: {
+      saturation: 1.85,
+      contrast: 1.35,
+      gamma: 0.82,
+      brightness: 0,
+    },
+    match: {
+      saturation: 2.4,
+      contrast: 1.7,
+      gamma: 0.72,
+      brightness: 0,
+    },
+    aggressive: {
+      saturation: 2.75,
+      contrast: 1.95,
+      gamma: 0.66,
+      brightness: -4,
+    },
+  };
 
-  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+  const selected = presets[preset] || presets.match;
 
-  r = gray + (r - gray) * exportSaturation;
-  g = gray + (g - gray) * exportSaturation;
-  b = gray + (b - gray) * exportSaturation;
+  let rr = r;
+  let gg = g;
+  let bb = b;
 
-  r = (r - 128) * exportContrast + 128 + exportBrightness;
-  g = (g - 128) * exportContrast + 128 + exportBrightness;
-  b = (b - 128) * exportContrast + 128 + exportBrightness;
+  const gray = 0.299 * rr + 0.587 * gg + 0.114 * bb;
 
-  r = 255 * Math.pow(clamp(r, 0, 255) / 255, exportGamma);
-  g = 255 * Math.pow(clamp(g, 0, 255) / 255, exportGamma);
-  b = 255 * Math.pow(clamp(b, 0, 255) / 255, exportGamma);
+  rr = gray + (rr - gray) * selected.saturation;
+  gg = gray + (gg - gray) * selected.saturation;
+  bb = gray + (bb - gray) * selected.saturation;
+
+  rr = (rr - 128) * selected.contrast + 128 + selected.brightness;
+  gg = (gg - 128) * selected.contrast + 128 + selected.brightness;
+  bb = (bb - 128) * selected.contrast + 128 + selected.brightness;
+
+  rr = 255 * Math.pow(clamp(rr, 0, 255) / 255, selected.gamma);
+  gg = 255 * Math.pow(clamp(gg, 0, 255) / 255, selected.gamma);
+  bb = 255 * Math.pow(clamp(bb, 0, 255) / 255, selected.gamma);
 
   return {
-    r: clamp(r, 0, 255),
-    g: clamp(g, 0, 255),
-    b: clamp(b, 0, 255),
+    r: clamp(rr, 0, 255),
+    g: clamp(gg, 0, 255),
+    b: clamp(bb, 0, 255),
   };
 }
 
@@ -360,6 +382,7 @@ export default function App() {
   const [shape, setShape] = useState("circle");
   const [saturation, setSaturation] = useState(1.15);
   const [showGrain, setShowGrain] = useState(false);
+  const [exportPreset, setExportPreset] = useState("match");
 
   const [isPreviewRecording, setIsPreviewRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -577,6 +600,7 @@ export default function App() {
     setShowGridStroke(false);
     setSaturation(1.15);
     setShowGrain(false);
+    setExportPreset("match");
   }
 
   function runPreview() {
@@ -604,7 +628,7 @@ export default function App() {
     rafRef.current = requestAnimationFrame(loop);
   }
 
-  function renderHalftone(video, targetCanvas, { mirror = false, exportMode = false } = {}) {
+  function renderHalftone(video, targetCanvas, { mirror = false, exportMode = false, exportPresetValue = "match" } = {}) {
     const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
     const offscreen = offscreenRef.current;
     if (!ctx || !offscreen) return;
@@ -680,7 +704,7 @@ export default function App() {
         b = sat.b;
 
         if (exportMode) {
-          const boosted = applyExportInputBoost(r, g, b);
+          const boosted = applyExportInputBoost(r, g, b, exportPresetValue);
           r = boosted.r;
           g = boosted.g;
           b = boosted.b;
@@ -795,6 +819,7 @@ function startPreviewRecording() {
       renderHalftone(video, recordCanvas, {
         mirror: sourceMode === "webcam" && mirrorWebcam,
         exportMode: true,
+        exportPresetValue: exportPreset,
       });
     }
 
@@ -923,6 +948,7 @@ function startPreviewRecording() {
           renderHalftone(exportVideo, exportCanvas, {
             mirror: false,
             exportMode: true,
+            exportPresetValue: exportPreset,
           });
 
           const duration = exportVideo.duration || 1;
@@ -1583,6 +1609,55 @@ function startPreviewRecording() {
             </div>
 
             <div style={groupBox}>
+              <div style={sectionLabel}>Export Color Match</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                <button
+                  onClick={() => setExportPreset("soft")}
+                  style={btn(exportPreset === "soft")}
+                >
+                  SOFT
+                </button>
+
+                <button
+                  onClick={() => setExportPreset("match")}
+                  style={btn(exportPreset === "match")}
+                >
+                  MATCH
+                </button>
+
+                <button
+                  onClick={() => setExportPreset("aggressive")}
+                  style={btn(exportPreset === "aggressive")}
+                >
+                  STRONG
+                </button>
+              </div>
+
+              <div
+                style={{
+                  ...insetStyle,
+                  background: "#fff",
+                  minHeight: "34px",
+                  padding: "8px",
+                  fontSize: "11px",
+                  color: ui.text,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                프리뷰는 그대로 두고 저장 영상에만 색 보정을 적용합니다.
+              </div>
+            </div>
+
+
+            <div style={groupBox}>
               <div style={sectionLabel}>Tone Controls</div>
 
               <div
@@ -1818,6 +1893,7 @@ function startPreviewRecording() {
         >
           <span>{ready ? "READY" : "WAIT"}</span>
           <span>{String(colorMode).toUpperCase()}</span>
+          <span>{String(exportPreset).toUpperCase()}</span>
         </div>
       </div>
 
