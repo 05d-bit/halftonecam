@@ -707,22 +707,26 @@ function startPreviewRecording() {
 
   recordCtx.imageSmoothingEnabled = false;
 
-  const drawToRecordCanvas = () => {
-    recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
-    recordCtx.drawImage(
-      previewCanvas,
-      0,
-      0,
-      previewCanvas.width,
-      previewCanvas.height,
-      0,
-      0,
-      recordCanvas.width,
-      recordCanvas.height
-    );
+const drawToRecordCanvas = () => {
+  recordCtx.globalCompositeOperation = "copy";
+  recordCtx.imageSmoothingEnabled = false;
 
-    recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
-  };
+  recordCtx.drawImage(
+    previewCanvas,
+    0,
+    0,
+    previewCanvas.width,
+    previewCanvas.height,
+    0,
+    0,
+    recordCanvas.width,
+    recordCanvas.height
+  );
+
+  recordCtx.globalCompositeOperation = "source-over";
+
+  recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
+};
 
   drawToRecordCanvas();
 
