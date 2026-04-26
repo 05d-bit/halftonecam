@@ -115,9 +115,9 @@ function applyExportColorCompensation(ctx, width, height) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
 
-  const exportSaturation = 1.38;
-  const exportContrast = 1.18;
-  const exportGamma = 0.92;
+  const exportSaturation = 1.75;
+  const exportContrast = 1.35;
+  const exportGamma = 0.85;
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i];
