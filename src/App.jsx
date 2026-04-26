@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
-const ffmpeg = createFFmpeg({
-  log: true,
-  corePath: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
-});
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -876,41 +873,53 @@ function startPreviewRecording() {
   }
 
   async function loadFFmpeg() {
-  if (ffmpegLoaded) return;
+    if (ffmpegLoaded) return;
 
-  const ffmpeg = ffmpegRef.current;
+    const ffmpeg = ffmpegRef.current;
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
 
-  await ffmpeg.load({
-    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
-    wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.wasm",
-  });
+    await ffmpeg.load({
+      coreURL: await toBlobURL(
+        `${baseURL}/ffmpeg-core.js`,
+        "text/javascript"
+      ),
+      wasmURL: await toBlobURL(
+        `${baseURL}/ffmpeg-core.wasm`,
+        "application/wasm"
+      ),
+    });
 
-  setFfmpegLoaded(true);
-}
+    setFfmpegLoaded(true);
+  }
 
 async function convertToMp4(webmBlob) {
-  const ffmpeg = ffmpegRef.current;
+    const ffmpeg = ffmpegRef.current;
 
-  await loadFFmpeg();
+    await loadFFmpeg();
 
-  const inputName = "input.webm";
-  const outputName = "output.mp4";
+    const inputName = "input.webm";
+    const outputName = "output.mp4";
 
-  await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+    await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
 
-  await ffmpeg.exec([
-    "-i", inputName,
-    "-c:v", "libx264",
-    "-preset", "ultrafast",
-    "-crf", "12",
-    "-pix_fmt", "yuv420p",
-    outputName,
-  ]);
+    await ffmpeg.exec([
+      "-i",
+      inputName,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "12",
+      "-pix_fmt",
+      "yuv420p",
+      outputName,
+    ]);
 
-  const data = await ffmpeg.readFile(outputName);
+    const data = await ffmpeg.readFile(outputName);
 
-  return new Blob([data.buffer], { type: "video/mp4" });
-}
+    return new Blob([data.buffer], { type: "video/mp4" });
+  }
   
   function toggleCamera() {
     setCameraFacingMode((prev) => (prev === "user" ? "environment" : "user"));
