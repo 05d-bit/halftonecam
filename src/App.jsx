@@ -711,7 +711,7 @@ function startPreviewRecording() {
 
   recordCtx.imageSmoothingEnabled = false;
 
-const drawToRecordCanvas = () => {
+  const drawToRecordCanvas = () => {
   recordCtx.globalCompositeOperation = "copy";
   recordCtx.imageSmoothingEnabled = false;
 
@@ -736,15 +736,13 @@ const drawToRecordCanvas = () => {
 
   const stream = recordCanvas.captureStream(30);
 
-const stream = recordCanvas.captureStream(30);
-
-const webmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  const webmType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
   ? "video/webm;codecs=vp9"
   : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
   ? "video/webm;codecs=vp8"
   : "video/webm";
 
-const recorder = new MediaRecorder(stream, {
+  const recorder = new MediaRecorder(stream, {
   mimeType: webmType,
   videoBitsPerSecond: 40_000_000,
 });
@@ -758,7 +756,7 @@ const recorder = new MediaRecorder(stream, {
     }
   };
 
-recorder.onstop = async () => {
+  recorder.onstop = async () => {
   cancelAnimationFrame(recordingDrawRafRef.current);
 
   const webmBlob = new Blob(previewRecordedChunksRef.current, {
@@ -897,7 +895,7 @@ async function convertToMp4(webmBlob) {
     "-i", inputName,
     "-c:v", "libx264",
     "-preset", "ultrafast",
-    "-crf", "18",
+    "-crf", "12",
     "-pix_fmt", "yuv420p",
     outputName,
   ]);
