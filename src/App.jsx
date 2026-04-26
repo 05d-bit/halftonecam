@@ -694,38 +694,41 @@ if (colorMode === "cmyk") {
     }, "image/png");
   }
 
-  function startPreviewRecording() {
-    const canvas = previewCanvasRef.current;
-    if (!canvas || !ready) return;
+ function startPreviewRecording() {
+  const canvas = previewCanvasRef.current;
+  if (!canvas || !ready) return;
 
-    const stream = canvas.captureStream(30);
-    const mimeType = getMimeType();
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
+  const stream = canvas.captureStream(30);
+  const mimeType = getMimeType();
 
+  const recorder = mimeType
+    ? new MediaRecorder(stream, { mimeType })
+    : new MediaRecorder(stream);
+
+  previewRecordedChunksRef.current = [];
+  previewRecorderRef.current = recorder;
+
+  recorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      previewRecordedChunksRef.current.push(event.data);
+    }
+  };
+
+  recorder.onstop = () => {
+    const finalType = mimeType || "video/webm";
+    const ext = getVideoExtension(finalType);
+
+    const blob = new Blob(previewRecordedChunksRef.current, {
+      type: finalType,
+    });
+
+    downloadBlob(blob, `halftone-webcam-${Date.now()}.${ext}`);
     previewRecordedChunksRef.current = [];
-    previewRecorderRef.current = recorder;
+  };
 
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        previewRecordedChunksRef.current.push(event.data);
-      }
-    };
-
-    recorder.onstop = () => {
-      const finalType = mimeType || "video/webm";
-      const ext = getVideoExtension(finalType);
-      const blob = new Blob(previewRecordedChunksRef.current, {
-        type: finalType,
-      });
-      downloadBlob(blob, `halftone-webcam-${Date.now()}.${ext}`);
-      previewRecordedChunksRef.current = [];
-    };
-
-    recorder.start();
-    setIsPreviewRecording(true);
-  }
+  recorder.start(100);
+  setIsPreviewRecording(true);
+}
 
   function stopPreviewRecording() {
     if (previewRecorderRef.current && previewRecorderRef.current.state !== "inactive") {
