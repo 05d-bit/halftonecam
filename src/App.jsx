@@ -111,6 +111,34 @@ function adjustSaturation(r, g, b, saturation) {
 }
 
 
+
+function applyExportInputBoost(r, g, b) {
+  const exportSaturation = 2.25;
+  const exportContrast = 1.55;
+  const exportGamma = 0.78;
+  const exportBrightness = 10;
+
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+  r = gray + (r - gray) * exportSaturation;
+  g = gray + (g - gray) * exportSaturation;
+  b = gray + (b - gray) * exportSaturation;
+
+  r = (r - 128) * exportContrast + 128 + exportBrightness;
+  g = (g - 128) * exportContrast + 128 + exportBrightness;
+  b = (b - 128) * exportContrast + 128 + exportBrightness;
+
+  r = 255 * Math.pow(clamp(r, 0, 255) / 255, exportGamma);
+  g = 255 * Math.pow(clamp(g, 0, 255) / 255, exportGamma);
+  b = 255 * Math.pow(clamp(b, 0, 255) / 255, exportGamma);
+
+  return {
+    r: clamp(r, 0, 255),
+    g: clamp(g, 0, 255),
+    b: clamp(b, 0, 255),
+  };
+}
+
 function applyExportColorCompensation(ctx, width, height) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
@@ -576,7 +604,7 @@ export default function App() {
     rafRef.current = requestAnimationFrame(loop);
   }
 
-  function renderHalftone(video, targetCanvas, { mirror = false } = {}) {
+  function renderHalftone(video, targetCanvas, { mirror = false, exportMode = false } = {}) {
     const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
     const offscreen = offscreenRef.current;
     if (!ctx || !offscreen) return;
@@ -650,6 +678,13 @@ export default function App() {
         r = sat.r;
         g = sat.g;
         b = sat.b;
+
+        if (exportMode) {
+          const boosted = applyExportInputBoost(r, g, b);
+          r = boosted.r;
+          g = boosted.g;
+          b = boosted.b;
+        }
 
         if (colorMode === "bw") {
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -749,23 +784,19 @@ function startPreviewRecording() {
   recordCtx.imageSmoothingEnabled = false;
 
   const drawToRecordCanvas = () => {
-    recordCtx.globalCompositeOperation = "copy";
-    recordCtx.imageSmoothingEnabled = false;
+    const video = sourceVideoRef.current;
 
-    recordCtx.drawImage(
-      previewCanvas,
-      0,
-      0,
-      previewCanvas.width,
-      previewCanvas.height,
-      0,
-      0,
-      recordCanvas.width,
-      recordCanvas.height
-    );
-
-    recordCtx.globalCompositeOperation = "source-over";
-    applyExportColorCompensation(recordCtx, recordCanvas.width, recordCanvas.height);
+    if (
+      video &&
+      video.readyState >= 2 &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    ) {
+      renderHalftone(video, recordCanvas, {
+        mirror: sourceMode === "webcam" && mirrorWebcam,
+        exportMode: true,
+      });
+    }
 
     recordingDrawRafRef.current = requestAnimationFrame(drawToRecordCanvas);
   };
@@ -889,14 +920,10 @@ function startPreviewRecording() {
             return;
           }
 
-          renderHalftone(exportVideo, exportCanvas, { mirror: false });
-
-          const exportCtx = exportCanvas.getContext("2d", {
-            willReadFrequently: true,
+          renderHalftone(exportVideo, exportCanvas, {
+            mirror: false,
+            exportMode: true,
           });
-          if (exportCtx) {
-            applyExportColorCompensation(exportCtx, exportCanvas.width, exportCanvas.height);
-          }
 
           const duration = exportVideo.duration || 1;
           setExportProgress(clamp(exportVideo.currentTime / duration, 0, 1));
