@@ -113,70 +113,36 @@ function adjustSaturation(r, g, b, saturation) {
 
 
 function applyExportInputBoost(r, g, b) {
-  const baseSaturation = 1.42;
-  const contrast = 1.28;
-  const gamma = 0.88;
-  const blackLevel = -6;
+  // Export-only compensation for MP4/H.264 chroma loss.
+  // Keeps luma/tone mostly stable while pre-emphasizing color separation.
+  const chromaBoost = 1.34;
+  const lumaContrast = 1.04;
+  const lumaOffset = 0;
 
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const chroma = (max - min) / 255;
+  const y = 0.299 * r + 0.587 * g + 0.114 * b;
+  const y2 = (y - 128) * lumaContrast + 128 + lumaOffset;
 
-  const adaptiveSaturation = 1 + (baseSaturation - 1) * (1 - chroma * 0.45);
-  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+  let rr = y2 + (r - y) * chromaBoost;
+  let gg = y2 + (g - y) * chromaBoost;
+  let bb = y2 + (b - y) * chromaBoost;
 
-  let rr = gray + (r - gray) * adaptiveSaturation;
-  let gg = gray + (g - gray) * adaptiveSaturation;
-  let bb = gray + (b - gray) * adaptiveSaturation;
+  const maxChannel = Math.max(rr, gg, bb);
+  const minChannel = Math.min(rr, gg, bb);
+  const chroma = maxChannel - minChannel;
 
-  rr = (rr - 128) * contrast + 128 + blackLevel;
-  gg = (gg - 128) * contrast + 128 + blackLevel;
-  bb = (bb - 128) * contrast + 128 + blackLevel;
-
-  rr = 255 * Math.pow(clamp(rr, 0, 255) / 255, gamma);
-  gg = 255 * Math.pow(clamp(gg, 0, 255) / 255, gamma);
-  bb = 255 * Math.pow(clamp(bb, 0, 255) / 255, gamma);
+  // Avoid fake color casts in nearly neutral areas.
+  if (chroma < 18) {
+    const gray = 0.299 * rr + 0.587 * gg + 0.114 * bb;
+    rr = gray + (rr - gray) * 0.82;
+    gg = gray + (gg - gray) * 0.82;
+    bb = gray + (bb - gray) * 0.82;
+  }
 
   return {
     r: clamp(rr, 0, 255),
     g: clamp(gg, 0, 255),
     b: clamp(bb, 0, 255),
   };
-}
-
-function applyExportColorCompensation(ctx, width, height) {
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-
-  const exportSaturation = 1.75;
-  const exportContrast = 1.35;
-  const exportGamma = 0.85;
-
-  for (let i = 0; i < data.length; i += 4) {
-    let r = data[i];
-    let g = data[i + 1];
-    let b = data[i + 2];
-
-    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
-    r = gray + (r - gray) * exportSaturation;
-    g = gray + (g - gray) * exportSaturation;
-    b = gray + (b - gray) * exportSaturation;
-
-    r = (r - 128) * exportContrast + 128;
-    g = (g - 128) * exportContrast + 128;
-    b = (b - 128) * exportContrast + 128;
-
-    r = 255 * Math.pow(clamp(r, 0, 255) / 255, exportGamma);
-    g = 255 * Math.pow(clamp(g, 0, 255) / 255, exportGamma);
-    b = 255 * Math.pow(clamp(b, 0, 255) / 255, exportGamma);
-
-    data[i] = clamp(r, 0, 255);
-    data[i + 1] = clamp(g, 0, 255);
-    data[i + 2] = clamp(b, 0, 255);
-  }
-
-  ctx.putImageData(imageData, 0, 0);
 }
 
 function drawGrain(ctx, width, height) {
@@ -609,7 +575,7 @@ export default function App() {
     rafRef.current = requestAnimationFrame(loop);
   }
 
-  function renderHalftone(video, targetCanvas, { mirror = false, exportMode = false } = {}) {
+  function renderHalftone(video, targetCanvas, { mirror = false, exportMode = false, exportScale = 1 } = {}) {
     const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
     const offscreen = offscreenRef.current;
     if (!ctx || !offscreen) return;
@@ -621,7 +587,8 @@ export default function App() {
       ? Math.min(window.innerWidth - 36, 860)
       : Math.min(window.innerWidth - 470, 1100);
 
-    const displayWidth = Math.max(320, maxPreviewWidth);
+    const baseDisplayWidth = Math.max(320, maxPreviewWidth);
+    const displayWidth = Math.round(baseDisplayWidth * (exportMode ? exportScale : 1));
     const displayHeight = Math.round((vh / vw) * displayWidth);
 
     if (
@@ -661,7 +628,7 @@ export default function App() {
     ctx.fillStyle = `rgb(${bg},${bg},${bg})`;
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
-    const step = Math.max(4, cellSize);
+    const step = Math.max(4, cellSize) * (exportMode ? exportScale : 1);
     const half = step / 2;
 
     const monoBaseRadius = dotScale * 6.0;
@@ -810,6 +777,7 @@ function startPreviewRecording() {
       renderHalftone(video, recordCanvas, {
         mirror: sourceMode === "webcam" && mirrorWebcam,
         exportMode: true,
+        exportScale: isMobile ? 1 : 2,
       });
     }
 
@@ -910,8 +878,13 @@ function startPreviewRecording() {
       const stream = exportCanvas.captureStream(fps);
       const mimeType = getMimeType();
       const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(stream, {
+            mimeType,
+            videoBitsPerSecond: 40_000_000,
+          })
+        : new MediaRecorder(stream, {
+            videoBitsPerSecond: 40_000_000,
+          });
 
       const chunks = [];
 
@@ -938,6 +911,7 @@ function startPreviewRecording() {
           renderHalftone(exportVideo, exportCanvas, {
             mirror: false,
             exportMode: true,
+            exportScale: isMobile ? 1 : 2,
           });
 
           const duration = exportVideo.duration || 1;
