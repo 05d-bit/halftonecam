@@ -351,6 +351,21 @@ export default function App() {
   const [saturation, setSaturation] = useState(1.15);
   const [showGrain, setShowGrain] = useState(false);
 
+  const renderSettingsRef = useRef({
+    dotScale: 8.85,
+    cellSize: 4,
+    brightness: 0.18,
+    contrast: 1.15,
+    gamma: 1.15,
+    invert: false,
+    showGridStroke: false,
+    bgTone: 8,
+    colorMode: "bw",
+    shape: "circle",
+    saturation: 1.15,
+    showGrain: false,
+  });
+
   const [isPreviewRecording, setIsPreviewRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -367,6 +382,36 @@ export default function App() {
     { value: "diamond", label: "◇" },
     { value: "star", label: "★" },
   ];
+
+  useEffect(() => {
+    renderSettingsRef.current = {
+      dotScale,
+      cellSize,
+      brightness,
+      contrast,
+      gamma,
+      invert,
+      showGridStroke,
+      bgTone,
+      colorMode,
+      shape,
+      saturation,
+      showGrain,
+    };
+  }, [
+    dotScale,
+    cellSize,
+    brightness,
+    contrast,
+    gamma,
+    invert,
+    showGridStroke,
+    bgTone,
+    colorMode,
+    shape,
+    saturation,
+    showGrain,
+  ]);
 
   useEffect(() => {
     offscreenRef.current = document.createElement("canvas");
@@ -652,6 +697,21 @@ export default function App() {
     const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
     const offscreen = offscreenRef.current;
     if (!ctx || !offscreen) return;
+
+    const {
+      dotScale,
+      cellSize,
+      brightness,
+      contrast,
+      gamma,
+      invert,
+      showGridStroke,
+      bgTone,
+      colorMode,
+      shape,
+      saturation,
+      showGrain,
+    } = renderSettingsRef.current;
 
     const { width: vw, height: vh } = getMediaSize(video);
 
