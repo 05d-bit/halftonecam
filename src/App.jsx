@@ -90,6 +90,23 @@ function getVideoExtension(mimeType) {
   return "webm";
 }
 
+function getMediaSize(media) {
+  const width = media?.videoWidth || media?.naturalWidth || media?.width || 1280;
+  const height = media?.videoHeight || media?.naturalHeight || media?.height || 720;
+
+  return { width, height };
+}
+
+function isMediaReady(media, sourceKind) {
+  if (!media) return false;
+
+  if (sourceKind === "image") {
+    return Boolean(media.complete && media.naturalWidth > 0 && media.naturalHeight > 0);
+  }
+
+  return Boolean(media.readyState >= 2 && media.videoWidth > 0 && media.videoHeight > 0);
+}
+
 function processTone(v, gamma, contrast, brightness, invert) {
   let value = v / 255;
   value = Math.pow(value, 1 / gamma);
@@ -300,6 +317,7 @@ function Win95Icon({ type, size = 16 }) {
 
 export default function App() {
   const sourceVideoRef = useRef(null);
+  const sourceImageRef = useRef(null);
   const previewCanvasRef = useRef(null);
   const offscreenRef = useRef(null);
   const rafRef = useRef(0);
@@ -312,6 +330,7 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   const [sourceMode, setSourceMode] = useState("webcam");
+  const [sourceKind, setSourceKind] = useState("video");
   const [videoUrl, setVideoUrl] = useState("");
   const [uploadedName, setUploadedName] = useState("");
   const [error, setError] = useState("");
@@ -362,24 +381,46 @@ export default function App() {
 
   useEffect(() => {
     if (sourceMode === "webcam") {
+      setSourceKind("video");
       void startWebcam();
     } else {
       stopWebcam();
-      const video = sourceVideoRef.current;
-      if (video && videoUrl) {
-        video.srcObject = null;
-        video.src = videoUrl;
-        video.muted = true;
-        video.playsInline = true;
-        video.onloadedmetadata = async () => {
-          try {
-            await video.play();
-          } catch {
-            //
+
+      if (sourceKind === "image") {
+        const image = sourceImageRef.current;
+        if (image && videoUrl) {
+          image.onload = () => {
+            setReady(true);
+            runPreview();
+          };
+          image.onerror = () => {
+            setError("이미지를 열 수 없습니다.");
+            setReady(false);
+          };
+          image.src = videoUrl;
+
+          if (image.complete && image.naturalWidth > 0) {
+            setReady(true);
+            runPreview();
           }
-          setReady(true);
-          runPreview();
-        };
+        }
+      } else {
+        const video = sourceVideoRef.current;
+        if (video && videoUrl) {
+          video.srcObject = null;
+          video.src = videoUrl;
+          video.muted = true;
+          video.playsInline = true;
+          video.onloadedmetadata = async () => {
+            try {
+              await video.play();
+            } catch {
+              //
+            }
+            setReady(true);
+            runPreview();
+          };
+        }
       }
     }
 
@@ -387,7 +428,7 @@ export default function App() {
       cancelAnimationFrame(rafRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceMode]);
+  }, [sourceMode, sourceKind, videoUrl]);
 
   useEffect(() => {
     if (sourceMode === "webcam") {
@@ -414,6 +455,7 @@ export default function App() {
     bgTone,
     colorMode,
     shape,
+    sourceKind,
   ]);
 
   async function startWebcam() {
@@ -507,16 +549,53 @@ export default function App() {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
 
     const url = URL.createObjectURL(file);
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      setError("이미지 또는 영상 파일만 사용할 수 있습니다.");
+      return;
+    }
+
     setUploadedName(file.name);
     setVideoUrl(url);
     setSourceMode("file");
+    setSourceKind(isImage ? "image" : "video");
     setError("");
     setReady(false);
 
+    stopWebcam();
+
+    if (isImage) {
+      const video = sourceVideoRef.current;
+      if (video) {
+        try {
+          video.pause();
+        } catch {
+          //
+        }
+        video.srcObject = null;
+        video.removeAttribute("src");
+        video.load?.();
+      }
+
+      const image = sourceImageRef.current;
+      if (!image) return;
+
+      image.onload = () => {
+        setReady(true);
+        runPreview();
+      };
+      image.onerror = () => {
+        setError("이미지를 열 수 없습니다.");
+        setReady(false);
+      };
+      image.src = url;
+      return;
+    }
+
     const video = sourceVideoRef.current;
     if (!video) return;
-
-    stopWebcam();
 
     video.srcObject = null;
     video.src = url;
@@ -554,17 +633,11 @@ export default function App() {
     cancelAnimationFrame(rafRef.current);
 
     const loop = () => {
-      const video = sourceVideoRef.current;
+      const media = sourceKind === "image" ? sourceImageRef.current : sourceVideoRef.current;
       const canvas = previewCanvasRef.current;
 
-      if (
-        video &&
-        canvas &&
-        video.readyState >= 2 &&
-        video.videoWidth > 0 &&
-        video.videoHeight > 0
-      ) {
-        renderHalftone(video, canvas, {
+      if (media && canvas && isMediaReady(media, sourceKind)) {
+        renderHalftone(media, canvas, {
           mirror: sourceMode === "webcam" && mirrorWebcam,
         });
       }
@@ -580,8 +653,7 @@ export default function App() {
     const offscreen = offscreenRef.current;
     if (!ctx || !offscreen) return;
 
-    const vw = video.videoWidth || 1280;
-    const vh = video.videoHeight || 720;
+    const { width: vw, height: vh } = getMediaSize(video);
 
     const maxPreviewWidth = isMobile
       ? Math.min(window.innerWidth - 36, 860)
@@ -766,15 +838,10 @@ function startPreviewRecording() {
   recordCtx.imageSmoothingEnabled = false;
 
   const drawToRecordCanvas = () => {
-    const video = sourceVideoRef.current;
+    const media = sourceKind === "image" ? sourceImageRef.current : sourceVideoRef.current;
 
-    if (
-      video &&
-      video.readyState >= 2 &&
-      video.videoWidth > 0 &&
-      video.videoHeight > 0
-    ) {
-      renderHalftone(video, recordCanvas, {
+    if (media && isMediaReady(media, sourceKind)) {
+      renderHalftone(media, recordCanvas, {
         mirror: sourceMode === "webcam" && mirrorWebcam,
         exportMode: true,
         exportScale: isMobile ? 1 : 2,
@@ -1295,8 +1362,8 @@ function startPreviewRecording() {
 
               <button
                 onClick={exportProcessedVideo}
-                disabled={isExporting || sourceMode !== "file"}
-                style={actionBtn(isExporting, isExporting || sourceMode !== "file")}
+                disabled={isExporting || sourceMode !== "file" || sourceKind !== "video"}
+                style={actionBtn(isExporting, isExporting || sourceMode !== "file" || sourceKind !== "video")}
               >
                 <Win95Icon type="disk" />
                 <span>
@@ -1487,7 +1554,7 @@ function startPreviewRecording() {
                   style={btn(sourceMode === "file")}
                 >
                   <Win95Icon type="folder" />
-                  <span>VIDEO FILE</span>
+                  <span>MEDIA FILE</span>
                 </button>
               </div>
 
@@ -1814,7 +1881,7 @@ function startPreviewRecording() {
         ref={fileInputRef}
         className="win95-file-input"
         type="file"
-        accept="video/*"
+        accept="video/*,image/*"
         onChange={handleUploadChange}
       />
 
@@ -1825,6 +1892,12 @@ function startPreviewRecording() {
         autoPlay
         style={{ display: "none" }}
         onLoadedMetadata={handleLoadedMetadata}
+      />
+      <img
+        ref={sourceImageRef}
+        alt=""
+        crossOrigin="anonymous"
+        style={{ display: "none" }}
       />
       <video ref={exportVideoRef} playsInline muted style={{ display: "none" }} />
     </div>
