@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -1960,6 +1961,7 @@ function startPreviewRecording() {
         style={{ display: "none" }}
       />
       <video ref={exportVideoRef} playsInline muted style={{ display: "none" }} />
+      <Analytics />
     </div>
   );
 }
